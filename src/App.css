@@ -16,7 +16,7 @@
 .app-shell h1 { margin: 8px 0 12px; }
 .intro { font-size: 1.05rem; }
 
-.patient-card, .error {
+.patient-list, .error {
   margin-top: 40px;
   padding: 28px;
   border: 1px solid var(--border);
@@ -25,6 +25,9 @@
   box-shadow: var(--shadow);
 }
 
+.patient-list { margin-top: 40px; }
+.patient-card { padding: 24px 0; border-bottom: 1px solid var(--border); }
+.patient-card:last-child { border-bottom: 0; }
 .patient-card h2, .error h2 { margin: 12px 0 24px; }
 
 dl { margin: 0; }
