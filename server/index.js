@@ -7,6 +7,7 @@ const port = process.env.PORT || 3001
 
 // The local Homebrew PostgreSQL server authenticates the current macOS user.
 // Override these defaults later with PGDATABASE or DATABASE_URL if needed.
+// THIS FILE WILL CHANGE WHEN YOU SET UP YOUR OWN DB WHILE WE ARE LOCAL TESTING.
 const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL })
   : new Pool({ database: process.env.PGDATABASE || 'emr_db' })
