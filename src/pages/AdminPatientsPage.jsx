@@ -81,9 +81,11 @@ function PageHeading({ eyebrow, title, description, action }) {
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-      <button className="primary-button" type="button">
-        <Icon name="plus" size={18} /> {action}
-      </button>
+      <Link to="/AdminAddUsersPage.jsx">
+          <button className="primary-button" type="button">
+          <Icon name="plus" size={18} /> {action}
+          </button>
+      </Link>
     </section>
   );
 }
