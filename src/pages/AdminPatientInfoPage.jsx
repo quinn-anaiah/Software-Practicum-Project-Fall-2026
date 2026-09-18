@@ -1,6 +1,6 @@
 import Icon from "../components/Icon";
 
-function AdminPatientDetailPage({ patients, selectedPatientId, onNavigate }) {
+function AdminPatientInfoPage({ patients, selectedPatientId, onNavigate }) {
   const patient = patients.find((p) => p.id === selectedPatientId);
 
   if (!patient) {
@@ -55,4 +55,4 @@ function AdminPatientDetailPage({ patients, selectedPatientId, onNavigate }) {
   );
 }
 
-export default AdminPatientDetailPage;
+export default AdminPatientInfoPage;

@@ -49,7 +49,7 @@ function App() {
         overview: AdminDashboardPage,
         patients: AdminPatientsPage,
         addPatient: AdminAddUsersPage,
-        patientDetail: AdminPatientDetailPage,
+        patientDetail: AdminPatientInfoPage,
         appointments: AdminAppointmentsPage,
         analytics: AdminAnalyticsPage,
         settings: SettingsPage,
