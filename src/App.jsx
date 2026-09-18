@@ -13,7 +13,7 @@ import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
 import SettingsPage from "./pages/SettingsPage";
 import { adminNavigation, patientNavigation } from "./lib/navigation";
 import AdminAddUsersPage from "./pages/AdminAddUsersPage";
-import AdminPatientDetailPage from "./pages/AdminPatientDetailPage";
+import AdminPatientInfoPage from "./pages/AdminPatientDetailPage";
 
 const sessionKey = "careflow-demo-user";
 
@@ -49,7 +49,7 @@ function App() {
         overview: AdminDashboardPage,
         patients: AdminPatientsPage,
         addPatient: AdminAddUsersPage,
-        patientDetail: AdminPatientInfoPage,
+        patientInfo: AdminPatientInfoPage,
         appointments: AdminAppointmentsPage,
         analytics: AdminAnalyticsPage,
         settings: SettingsPage,
