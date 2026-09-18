@@ -1,7 +1,6 @@
 import Icon from "../components/Icon";
-import { adminPatients } from "../lib/adminData";
 
-function AdminPatientsPage() {
+function AdminPatientsPage({patients, onNavigate, setSelectedPatientId}) {
   return (
     <div className="dashboard-page content-page">
       <PageHeading
@@ -9,10 +8,11 @@ function AdminPatientsPage() {
         title="Patients"
         description="Search, review, and manage the people in your practice."
         action="Add patient"
+        onNavigate={onNavigate}
       />
       <section className="panel data-panel">
         <div className="data-panel__toolbar">
-          <strong>{adminPatients.length} patients</strong>
+          <strong>{patients.length} patients</strong>
           <label className="table-search">
             <Icon name="search" size={16} />
             <input placeholder="Search patients" type="search" />
@@ -31,7 +31,7 @@ function AdminPatientsPage() {
               </tr>
             </thead>
             <tbody>
-              {adminPatients.map((patient) => (
+              {patients.map((patient) => (
                 <tr key={patient.id}>
                   <td>
                     <span
@@ -59,6 +59,10 @@ function AdminPatientsPage() {
                       aria-label={`Open ${patient.name}`}
                       className="row-action"
                       type="button"
+                      onClick={() => {
+                        setSelectedPatientId(patient.id);
+                        onNavigate("patientDetail");
+                      }}
                     >
                       <Icon name="arrow" size={16} />
                     </button>
@@ -73,7 +77,7 @@ function AdminPatientsPage() {
   );
 }
 
-function PageHeading({ eyebrow, title, description, action }) {
+function PageHeading({ eyebrow, title, description, action, onNavigate}) {
   return (
     <section className="page-heading">
       <div>
@@ -81,11 +85,10 @@ function PageHeading({ eyebrow, title, description, action }) {
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-      <Link to="/AdminAddUsersPage.jsx">
-          <button className="primary-button" type="button">
-          <Icon name="plus" size={18} /> {action}
-          </button>
-      </Link>
+    
+      <button className="primary-button" type="button" onClick={() => onNavigate("addPatient")}>
+        <Icon name="plus" size={18} /> {action}
+      </button>
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { adminPatients as initialPatients } from "./lib/adminData";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import AdminAppointmentsPage from "./pages/AdminAppointmentsPage";
@@ -11,6 +12,8 @@ import PatientDashboardPage from "./pages/PatientDashboardPage";
 import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
 import SettingsPage from "./pages/SettingsPage";
 import { adminNavigation, patientNavigation } from "./lib/navigation";
+import AdminAddUsersPage from "./pages/AdminAddUsersPage";
+import AdminPatientDetailPage from "./pages/AdminPatientDetailPage";
 
 const sessionKey = "careflow-demo-user";
 
@@ -20,6 +23,12 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
   const [activePage, setActivePage] = useState("overview");
+  const [patients, setPatients]=useState(initialPatients);
+  const [selectedPatientId, setSelectedPatientId]= useState(null);
+
+  function addPatient(newPatient){
+    setPatients((prev)=>[...prev, newPatient]);
+  }
 
   function handleLogin(authenticatedUser) {
     sessionStorage.setItem(sessionKey, JSON.stringify(authenticatedUser));
@@ -39,6 +48,8 @@ function App() {
     ? {
         overview: AdminDashboardPage,
         patients: AdminPatientsPage,
+        addPatient: AdminAddUsersPage,
+        patientDetail: AdminPatientDetailPage,
         appointments: AdminAppointmentsPage,
         analytics: AdminAnalyticsPage,
         settings: SettingsPage,
@@ -60,7 +71,12 @@ function App() {
       onNavigate={setActivePage}
       user={user}
     >
-      <ActivePage user={user} />
+      <ActivePage user={user}
+                  patients={patients}
+                  addPatient={addPatient}
+                  onNavigate={setActivePage}
+                  selectedPatientId={selectedPatientId}
+                  setSelectedPatientId={setSelectedPatientId} />
     </DashboardLayout>
   );
 }
