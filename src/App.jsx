@@ -13,7 +13,7 @@ import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
 import SettingsPage from "./pages/SettingsPage";
 import { adminNavigation, patientNavigation } from "./lib/navigation";
 import AdminAddUsersPage from "./pages/AdminAddUsersPage";
-import AdminPatientInfoPage from "./pages/AdminPatientDetailPage";
+import AdminPatientInfoPage from "./pages/AdminPatientInfoPage";
 
 const sessionKey = "careflow-demo-user";
 
