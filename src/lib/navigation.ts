@@ -11,3 +11,7 @@ export const patientNavigation = [
   { id: "appointments", label: "Appointments", icon: "calendar" },
   { id: "insights", label: "Health insights", icon: "chart" },
 ];
+
+export const studentNavigation = [
+  { id: "overview", label: "My cases", icon: "grid" },
+];

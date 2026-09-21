@@ -43,30 +43,62 @@ function App() {
 
   if (!user) return <LoginPage onLogin={handleLogin} />;
 
-  const isAdministrator = user.role === "Administrator";
-  const pages = isAdministrator
-    ? {
-        overview: AdminDashboardPage,
-        patients: AdminPatientsPage,
-        addPatient: AdminAddUsersPage,
-        patientInfo: AdminPatientInfoPage,
-        appointments: AdminAppointmentsPage,
-        analytics: AdminAnalyticsPage,
-        settings: SettingsPage,
-      }
-    : {
-        overview: PatientDashboardPage,
-        careTeam: CareTeamPage,
-        appointments: PatientAppointmentsPage,
-        insights: HealthInsightsPage,
-        settings: SettingsPage,
-      };
+  const pageSetsByRole={
+    Instructor:{
+      overview: AdminDashboardPage,
+      patients: AdminPatientsPage,
+      addPatient: AdminAddUsersPage,
+      patientInfo: AdminPatientInfoPage,
+      appointments: AdminAppointmentsPage,
+      analytics: AdminAnalyticsPage,
+      settings: SettingsPage,
+    }, 
+    Patient: {
+      overview: PatientDashboardPage,
+      careTeam: CareTeamPage,
+      appointments: PatientAppointmentsPage,
+      insights: HealthInsightsPage,
+      settings: SettingsPage,
+    },
+    Student: {
+      overview: StudentDashboardPage,
+      settings: SettingsPage,
+    },
+  };
+
+  const navigationByRole = {
+    Instructor: adminNavigation,
+    Patient: patientNavigation,
+    Student: studentNavigation,
+  };
+
+  const pages = pageSetsByRole[user.role] || pageSetsByRole.Patient;
   const ActivePage = pages[activePage] || pages.overview;
+
+  // const isAdministrator = user.role === "Administrator";
+  // const pages = isAdministrator
+  //   ? {
+  //       overview: AdminDashboardPage,
+  //       patients: AdminPatientsPage,
+  //       addPatient: AdminAddUsersPage,
+  //       patientInfo: AdminPatientInfoPage,
+  //       appointments: AdminAppointmentsPage,
+  //       analytics: AdminAnalyticsPage,
+  //       settings: SettingsPage,
+  //     }
+  //   : {
+  //       overview: PatientDashboardPage,
+  //       careTeam: CareTeamPage,
+  //       appointments: PatientAppointmentsPage,
+  //       insights: HealthInsightsPage,
+  //       settings: SettingsPage,
+  //     };
+  // const ActivePage = pages[activePage] || pages.overview;
 
   return (
     <DashboardLayout
       activePage={activePage}
-      navItems={isAdministrator ? adminNavigation : patientNavigation}
+      navItems={navigationByRole[user.role]|| patientNavigation}
       onLogout={handleLogout}
       onNavigate={setActivePage}
       user={user}
