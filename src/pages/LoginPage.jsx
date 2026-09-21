@@ -27,7 +27,12 @@ function LoginPage({ onLogin }) {
         <div className="login-page__message">
           <div className="team-no">
             <p>
-              Team 4
+              Team 4:<br></br>
+              Anaiah Quinn<br></br>
+              Christian Revilla<br></br>
+              Derek Gamboa<br></br>
+              Francisco Vazquez<br></br>
+              Scrum Master Sprint1: Jazmin Huerta
             </p>
           </div>
         </div>
@@ -69,9 +74,14 @@ function LoginPage({ onLogin }) {
           </form>
           <div className="demo-credentials">
             <strong>Demo accounts</strong>
-            <span>Student: javier.lopez@careflow.test · Password: Student123!</span>
-            <span>Instructor: dr.rivera@careflow.test · Password: Careflow2026! </span>
-            <span>Patient: morgan.lee@careflow.test · Password: Welcome123!</span>
+            <span>Student: javier.lopez@careflow.test</span>
+            <span>Password: Student123!</span>
+            <hr></hr>
+            <span>Instructor: dr.rivera@careflow.test</span>
+            <span>Password: Careflow2026!</span>
+            <hr></hr>
+            <span>Patient: morgan.lee@careflow.test</span>
+            <span>Password: Welcome123!</span>
           </div>
         </div>
       </section>
