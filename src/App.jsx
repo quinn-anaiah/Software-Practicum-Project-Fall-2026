@@ -11,10 +11,11 @@ import LoginPage from "./pages/LoginPage";
 import PatientDashboardPage from "./pages/PatientDashboardPage";
 import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
 import SettingsPage from "./pages/SettingsPage";
-import { adminNavigation, patientNavigation } from "./lib/navigation";
 import AdminAddUsersPage from "./pages/AdminAddUsersPage";
 import AdminPatientInfoPage from "./pages/AdminPatientInfoPage";
-
+import StudentDashboardPage from "./pages/StudentDashboardPage";
+import { adminNavigation, patientNavigation, studentNavigation } from "./lib/navigation";
+import StudentCaseDetailPage from "./pages/StudentCaseDetailPage";
 const sessionKey = "careflow-demo-user";
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
   const [activePage, setActivePage] = useState("overview");
   const [patients, setPatients]=useState(initialPatients);
   const [selectedPatientId, setSelectedPatientId]= useState(null);
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
 
   function addPatient(newPatient){
     setPatients((prev)=>[...prev, newPatient]);
@@ -62,6 +64,7 @@ function App() {
     },
     Student: {
       overview: StudentDashboardPage,
+      caseDetail : StudentCaseDetailPage,
       settings: SettingsPage,
     },
   };
@@ -108,7 +111,9 @@ function App() {
                   addPatient={addPatient}
                   onNavigate={setActivePage}
                   selectedPatientId={selectedPatientId}
-                  setSelectedPatientId={setSelectedPatientId} />
+                  setSelectedPatientId={setSelectedPatientId}
+                  selectedCaseId={selectedCaseId}
+                  setSelectedCaseId={setSelectedCaseId}/>
     </DashboardLayout>
   );
 }
