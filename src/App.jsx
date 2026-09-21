@@ -11,10 +11,11 @@ import LoginPage from "./pages/LoginPage";
 import PatientDashboardPage from "./pages/PatientDashboardPage";
 import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
 import SettingsPage from "./pages/SettingsPage";
-import { adminNavigation, patientNavigation } from "./lib/navigation";
 import AdminAddUsersPage from "./pages/AdminAddUsersPage";
 import AdminPatientInfoPage from "./pages/AdminPatientInfoPage";
-
+import StudentDashboardPage from "./pages/StudentDashboardPage";
+import { adminNavigation, patientNavigation, studentNavigation } from "./lib/navigation";
+import StudentCaseDetailPage from "./pages/StudentCaseDetailPage";
 const sessionKey = "careflow-demo-user";
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
   const [activePage, setActivePage] = useState("overview");
   const [patients, setPatients]=useState(initialPatients);
   const [selectedPatientId, setSelectedPatientId]= useState(null);
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
 
   function addPatient(newPatient){
     setPatients((prev)=>[...prev, newPatient]);
@@ -43,30 +45,63 @@ function App() {
 
   if (!user) return <LoginPage onLogin={handleLogin} />;
 
-  const isAdministrator = user.role === "Administrator";
-  const pages = isAdministrator
-    ? {
-        overview: AdminDashboardPage,
-        patients: AdminPatientsPage,
-        addPatient: AdminAddUsersPage,
-        patientInfo: AdminPatientInfoPage,
-        appointments: AdminAppointmentsPage,
-        analytics: AdminAnalyticsPage,
-        settings: SettingsPage,
-      }
-    : {
-        overview: PatientDashboardPage,
-        careTeam: CareTeamPage,
-        appointments: PatientAppointmentsPage,
-        insights: HealthInsightsPage,
-        settings: SettingsPage,
-      };
+  const pageSetsByRole={
+    Instructor:{
+      overview: AdminDashboardPage,
+      patients: AdminPatientsPage,
+      addPatient: AdminAddUsersPage,
+      patientInfo: AdminPatientInfoPage,
+      appointments: AdminAppointmentsPage,
+      analytics: AdminAnalyticsPage,
+      settings: SettingsPage,
+    }, 
+    Patient: {
+      overview: PatientDashboardPage,
+      careTeam: CareTeamPage,
+      appointments: PatientAppointmentsPage,
+      insights: HealthInsightsPage,
+      settings: SettingsPage,
+    },
+    Student: {
+      overview: StudentDashboardPage,
+      caseDetail : StudentCaseDetailPage,
+      settings: SettingsPage,
+    },
+  };
+
+  const navigationByRole = {
+    Instructor: adminNavigation,
+    Patient: patientNavigation,
+    Student: studentNavigation,
+  };
+
+  const pages = pageSetsByRole[user.role] || pageSetsByRole.Patient;
   const ActivePage = pages[activePage] || pages.overview;
+
+  // const isAdministrator = user.role === "Administrator";
+  // const pages = isAdministrator
+  //   ? {
+  //       overview: AdminDashboardPage,
+  //       patients: AdminPatientsPage,
+  //       addPatient: AdminAddUsersPage,
+  //       patientInfo: AdminPatientInfoPage,
+  //       appointments: AdminAppointmentsPage,
+  //       analytics: AdminAnalyticsPage,
+  //       settings: SettingsPage,
+  //     }
+  //   : {
+  //       overview: PatientDashboardPage,
+  //       careTeam: CareTeamPage,
+  //       appointments: PatientAppointmentsPage,
+  //       insights: HealthInsightsPage,
+  //       settings: SettingsPage,
+  //     };
+  // const ActivePage = pages[activePage] || pages.overview;
 
   return (
     <DashboardLayout
       activePage={activePage}
-      navItems={isAdministrator ? adminNavigation : patientNavigation}
+      navItems={navigationByRole[user.role]|| patientNavigation}
       onLogout={handleLogout}
       onNavigate={setActivePage}
       user={user}
@@ -76,7 +111,9 @@ function App() {
                   addPatient={addPatient}
                   onNavigate={setActivePage}
                   selectedPatientId={selectedPatientId}
-                  setSelectedPatientId={setSelectedPatientId} />
+                  setSelectedPatientId={setSelectedPatientId}
+                  selectedCaseId={selectedCaseId}
+                  setSelectedCaseId={setSelectedCaseId}/>
     </DashboardLayout>
   );
 }

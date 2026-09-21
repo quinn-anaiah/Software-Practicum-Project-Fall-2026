@@ -13,7 +13,7 @@ export const demoUsers: DemoUser[] = [
     name: "Dr. Rivera",
     email: "dr.rivera@careflow.test",
     password: "Careflow2026!",
-    role: "Administrator",
+    role: "Instructor",
     initials: "DR",
   },
   {
@@ -23,5 +23,13 @@ export const demoUsers: DemoUser[] = [
     password: "Welcome123!",
     role: "Patient",
     initials: "ML",
+  },
+
+  {id: "usr-003",
+   name: "Javier Lopez",
+   email: "javier.lopez@careflow.test", 
+   password: "Student123!", 
+   role: "Student", 
+   initials: "JL"
   },
 ];
