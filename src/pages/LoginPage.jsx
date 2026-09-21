@@ -25,19 +25,10 @@ function LoginPage({ onLogin }) {
           <span className="brand-mark">+</span> Careflow
         </div>
         <div className="login-page__message">
-          <p className="section-label">Connected care, simplified</p>
-          <h1>Built for the people behind better care.</h1>
-          <p>
-            One calm workspace for your practice, your patients, and every
-            moment in between.
-          </p>
-          <div className="login-quote">
-            <span>“</span>
+          <div className="team-no">
             <p>
-              Careflow keeps our day organized, so we can focus more fully on
-              our patients.
+              Team 4
             </p>
-            <strong>— Dr. Amara Shah</strong>
           </div>
         </div>
       </section>
@@ -78,9 +69,9 @@ function LoginPage({ onLogin }) {
           </form>
           <div className="demo-credentials">
             <strong>Demo accounts</strong>
-            <span>Admin · dr.rivera@careflow.test</span>
-            <span>Patient · morgan.lee@careflow.test</span>
-            <span>Passwords: Careflow2026! / Welcome123!</span>
+            <span>Student: javier.lopez@careflow.test · Password: Student123!</span>
+            <span>Instructor: dr.rivera@careflow.test · Password: Careflow2026! </span>
+            <span>Patient: morgan.lee@careflow.test · Password: Welcome123!</span>
           </div>
         </div>
       </section>
