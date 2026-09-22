@@ -9,7 +9,11 @@ function StudentCaseDetailPage({ user, selectedCaseId, onNavigate }) {
     return (
       <div className="dashboard-page content-page">
         <p>No case selected.</p>
-        <button className="secondary-button" type="button" onClick={() => onNavigate("overview")}>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => onNavigate("overview")}
+        >
           Back to my cases
         </button>
       </div>
@@ -24,7 +28,11 @@ function StudentCaseDetailPage({ user, selectedCaseId, onNavigate }) {
           <h1>{patientCase.patientName}</h1>
           <p>Assigned by {patientCase.assignedBy}</p>
         </div>
-        <button className="secondary-button" type="button" onClick={() => onNavigate("overview")}>
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={() => onNavigate("overview")}
+        >
           <Icon name="arrow" size={16} /> Back
         </button>
       </section>
@@ -76,7 +84,11 @@ function StudentCaseDetailPage({ user, selectedCaseId, onNavigate }) {
         </dl>
 
         <div className="form-actions">
-          <button className="primary-button" type="button" onClick={() => onNavigate("noteForm")}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => onNavigate("noteForm")}
+          >
             Start SOAP note
           </button>
         </div>

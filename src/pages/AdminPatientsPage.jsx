@@ -1,6 +1,6 @@
 import Icon from "../components/Icon";
 
-function AdminPatientsPage({patients, onNavigate, setSelectedPatientId}) {
+function AdminPatientsPage({ patients, onNavigate, setSelectedPatientId }) {
   return (
     <div className="dashboard-page content-page">
       <PageHeading
@@ -77,7 +77,7 @@ function AdminPatientsPage({patients, onNavigate, setSelectedPatientId}) {
   );
 }
 
-function PageHeading({ eyebrow, title, description, action, onNavigate}) {
+function PageHeading({ eyebrow, title, description, action, onNavigate }) {
   return (
     <section className="page-heading">
       <div>
@@ -85,8 +85,12 @@ function PageHeading({ eyebrow, title, description, action, onNavigate}) {
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-    
-      <button className="primary-button" type="button" onClick={() => onNavigate("addPatient")}>
+
+      <button
+        className="primary-button"
+        type="button"
+        onClick={() => onNavigate("addPatient")}
+      >
         <Icon name="plus" size={18} /> {action}
       </button>
     </section>

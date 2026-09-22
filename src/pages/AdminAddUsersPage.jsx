@@ -86,14 +86,22 @@ function AdminAddUsersPage({ addPatient, onNavigate }) {
 
           <label>
             Status
-            <select name="status" value={formData.status} onChange={handleChange}>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+            >
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </label>
 
           <div className="form-actions">
-            <button className="secondary-button" type="button" onClick={() => onNavigate("patients")}>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => onNavigate("patients")}
+            >
               Cancel
             </button>
             <button className="primary-button" type="submit">

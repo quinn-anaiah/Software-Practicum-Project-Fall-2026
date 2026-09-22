@@ -16,7 +16,9 @@ function StudentDashboardPage({ user, onNavigate, setSelectedCaseId }) {
 
       <section className="panel data-panel">
         {cases.length === 0 ? (
-          <p>No cases assigned yet. Check back once your instructor assigns one.</p>
+          <p>
+            No cases assigned yet. Check back once your instructor assigns one.
+          </p>
         ) : (
           <div className="table-wrap">
             <table>
