@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { adminPatients as initialPatients } from "./lib/adminData";
 import { starterClassrooms } from "./lib/instructorData";
+import { studentCases as initialStudentCases } from "./lib/studentData";
 import CareTeamPage from "./pages/CareTeamPage";
 import DashboardLayout from "./components/DashboardLayout";
 import HealthInsightsPage from "./pages/HealthInsightsPage";
@@ -35,6 +36,7 @@ function App() {
   const [patients, setPatients] = useState(initialPatients);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [selectedCaseId, setSelectedCaseId] = useState(null);
+  const [studentCases, setStudentCases] = useState(initialStudentCases);
   const [classrooms, setClassrooms] = useState(starterClassrooms);
   const [activeClassroomId, setActiveClassroomId] = useState("classroom-1");
   const activeClassroom =
@@ -134,6 +136,21 @@ function App() {
     return true;
   }
 
+  function updateCaseStatus(userId, caseId, newStatus) {
+  setStudentCases((previousCases) => ({
+    ...previousCases,
+
+    [userId]: (previousCases[userId] || []).map((patientCase) =>
+      patientCase.id === caseId
+        ? {
+            ...patientCase,
+            encounterStatus: newStatus,
+          }
+        : patientCase
+    ),
+  }));
+}
+
   function handleLogin(authenticatedUser) {
     sessionStorage.setItem(sessionKey, JSON.stringify(authenticatedUser));
     setUser(authenticatedUser);
@@ -200,6 +217,8 @@ function App() {
         setSelectedPatientId={setSelectedPatientId}
         selectedCaseId={selectedCaseId}
         setSelectedCaseId={setSelectedCaseId}
+        studentCases={studentCases}
+        updateCaseStatus={updateCaseStatus}
         cohortStudents={cohortStudents}
         cohortGroups={cohortGroups}
         classrooms={classrooms}

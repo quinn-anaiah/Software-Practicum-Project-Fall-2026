@@ -1,7 +1,12 @@
 import Icon from "../components/Icon";
-import { studentCases } from "../lib/studentData";
 
-function StudentCaseDetailPage({ user, selectedCaseId, onNavigate }) {
+function StudentCaseDetailPage({
+  user,
+  selectedCaseId,
+  onNavigate,
+  studentCases,
+  updateCaseStatus,
+}) {
   const cases = studentCases[user.id] || [];
   const patientCase = cases.find((c) => c.id === selectedCaseId);
 
@@ -18,6 +23,40 @@ function StudentCaseDetailPage({ user, selectedCaseId, onNavigate }) {
         </button>
       </div>
     );
+  }
+
+  const statusOrder = [
+    "Scheduled",
+    "Checked in",
+    "Roomed",
+    "In progress",
+    "Checked out",
+  ];
+
+  const statusButtonLabels = {
+  Scheduled: "Check In",
+  "Checked in": " Mark as Roomed",
+  Roomed: "Start Encounter",
+  "In progress": "Check Out",
+  };
+
+  function advanceStatus() {
+    const currentIndex = statusOrder.indexOf(
+      patientCase.encounterStatus
+    );
+
+    if (
+      currentIndex !== -1 &&
+      currentIndex < statusOrder.length - 1
+    ) {
+      const nextStatus = statusOrder[currentIndex + 1];
+
+      updateCaseStatus(
+        user.id,
+        patientCase.id,
+        nextStatus
+      );
+    }
   }
 
   return (
@@ -70,28 +109,46 @@ function StudentCaseDetailPage({ user, selectedCaseId, onNavigate }) {
                 <dd>{patientCase.results}</dd>
             </div>
             <div className="detail-field">
-                <dt>Encounter status</dt>
-                <dd>
-                <span className="status-badge--active">{patientCase.encounterStatus}</span>
-                </dd>
-            </div>
-            <div className="detail-field">
-                <dt>Note status</dt>
-                <dd>
-                <span className="status-badge--completed">{patientCase.noteStatus}</span>
-                </dd>
-            </div>
+            <dt>Encounter status</dt>
+
+            <dd className="status-action">
+              <span className="status-badge--active">
+                {patientCase.encounterStatus}
+              </span>
+
+              {patientCase.encounterStatus !== "Checked out" && (
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={advanceStatus}
+                >
+                  {statusButtonLabels[patientCase.encounterStatus]}
+                </button>
+              )}
+            </dd>
+          </div>
+
+          <div className="detail-field">
+            <dt>Note status</dt>
+
+            <dd className="status-action">
+              <span className="status-badge--completed">
+                {patientCase.noteStatus}
+              </span>
+
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => onNavigate("noteForm")}
+              >
+                {patientCase.noteStatus === "Not started"
+                  ? "Start SOAP Note"
+                  : "Continue SOAP Note"}
+              </button>
+            </dd>
+          </div>
         </dl>
 
-        <div className="form-actions">
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => onNavigate("noteForm")}
-          >
-            Start SOAP note
-          </button>
-        </div>
       </section>
     </div>
   );

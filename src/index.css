@@ -2811,3 +2811,13 @@ td small {
     gap: 7px;
   }
 }
+.status-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.status-action .primary-button {
+  margin-top: 4px;
+}

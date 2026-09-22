@@ -1,7 +1,11 @@
 import Icon from "../components/Icon";
-import { studentCases } from "../lib/studentData";
 
-function StudentDashboardPage({ user, onNavigate, setSelectedCaseId }) {
+function StudentDashboardPage({
+  user,
+  onNavigate,
+  setSelectedCaseId,
+  studentCases,
+}) {
   const cases = studentCases[user.id] || [];
 
   return (
