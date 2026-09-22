@@ -25,11 +25,12 @@ export const demoUsers: DemoUser[] = [
     initials: "ML",
   },
 
-  {id: "usr-003",
-   name: "Javier Lopez",
-   email: "javier.lopez@careflow.test", 
-   password: "Student123!", 
-   role: "Student", 
-   initials: "JL"
+  {
+    id: "usr-003",
+    name: "Javier Lopez",
+    email: "javier.lopez@careflow.test",
+    password: "Student123!",
+    role: "Student",
+    initials: "JL",
   },
 ];
