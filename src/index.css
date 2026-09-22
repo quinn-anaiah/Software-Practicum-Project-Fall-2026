@@ -6,6 +6,47 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
+.detail-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.detail-field {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-field dt {
+  font-size: 0.75rem;
+  color: #8a8a8a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.detail-field dd {
+  font-size: 1.1rem;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.detail-field--wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .detail-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -2256,7 +2297,7 @@ button {
   font-weight: 700;
 }
 .data-panel {
-  padding: 0;
+  padding: 1;
   overflow: hidden;
 }
 .data-panel__toolbar {
@@ -2328,7 +2369,7 @@ td small {
   display: inline-block;
   padding: 4px 8px;
   border-radius: 99px;
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 700;
 }
 .status-badge--active,
