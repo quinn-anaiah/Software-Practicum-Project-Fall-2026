@@ -27,7 +27,7 @@ export interface AssignedCase {
 }
 
 export const studentCases: Record<string, AssignedCase[]> = {
-    //this key matches our demo student user's ID! (usr-003)
+  //this key matches our demo student user's ID! (usr-003)
   "usr-003": [
     {
       id: "CASE-1",
@@ -35,7 +35,8 @@ export const studentCases: Record<string, AssignedCase[]> = {
       patientAge: 62,
       patientSex: "Female",
       chiefComplaint: "Follow-up for hypertension and new-onset dizziness",
-      history: "Hypertension x8 years, Type 2 diabetes x3 years, no known drug allergies.",
+      history:
+        "Hypertension x8 years, Type 2 diabetes x3 years, no known drug allergies.",
       medications: ["Lisinopril 20mg daily", "Metformin 500mg twice daily"],
       results: "BP 148/92, HR 78, A1c 7.2% (last drawn 2 weeks ago).",
       encounterStatus: "Checked in",
