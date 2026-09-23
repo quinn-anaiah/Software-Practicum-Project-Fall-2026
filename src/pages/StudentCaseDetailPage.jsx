@@ -6,9 +6,11 @@ function StudentCaseDetailPage({
   onNavigate,
   studentCases,
   updateCaseStatus,
+  studentOrders,
 }) {
   const cases = studentCases[user.id] || [];
   const patientCase = cases.find((c) => c.id === selectedCaseId);
+  const orders = studentOrders[selectedCaseId] || [];
 
   if (!patientCase) {
     return (
@@ -142,11 +144,36 @@ function StudentCaseDetailPage({
                 onClick={() => onNavigate("noteForm")}
               >
                 {patientCase.noteStatus === "Not started"
-                  ? "Start SOAP Note"
-                  : "Continue SOAP Note"}
+                  ? "Start Note"
+                  : "Continue Note"}
               </button>
             </dd>
           </div>
+          <div className="detail-field">
+          <dt>Orders</dt>
+
+          <dd className="status-action">
+            <span>
+              {orders.length === 0
+                ? "No draft orders"
+                : `${orders.length} draft ${
+                    orders.length === 1
+                      ? "order"
+                      : "orders"
+                  }`}
+            </span>
+
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => onNavigate("orderEntry")}
+            >
+              {orders.length === 0
+                ? "Add Orders"
+                : "Manage Orders"}
+            </button>
+          </dd>
+        </div>
         </dl>
 
       </section>
