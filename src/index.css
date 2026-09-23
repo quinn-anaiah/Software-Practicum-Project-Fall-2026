@@ -2821,3 +2821,84 @@ td small {
 .status-action .primary-button {
   margin-top: 4px;
 }
+.note-patient-summary {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #dfe4ef;
+}
+
+.note-patient-summary h2,
+.orders-list h2 {
+  margin-top: 0;
+}
+
+.note-patient-summary p {
+  margin: 8px 0;
+}
+
+.note-form,
+.order-form {
+  display: grid;
+  gap: 24px;
+}
+
+.order-form {
+  gap: 16px;
+  margin-bottom: 30px;
+}
+
+.note-field,
+.order-field {
+  display: grid;
+  gap: 8px;
+}
+
+.note-field label,
+.order-field label {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.note-field p {
+  margin: 0;
+  color: #8c96a9;
+  font-size: 12px;
+}
+
+.note-field textarea,
+.note-field select,
+.order-field input,
+.order-field select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dfe4ef;
+  border-radius: 8px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.note-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.note-field textarea:focus,
+.note-field select:focus {
+  border-color: #7de4cf;
+  outline: none;
+}
+
+.note-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.orders-list {
+  margin-bottom: 30px;
+}
+
+.add-order-button {
+  width: fit-content;
+  justify-self: start;
+}

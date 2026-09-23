@@ -25,6 +25,8 @@ import {
   studentNavigation,
 } from "./lib/navigation";
 import StudentCaseDetailPage from "./pages/StudentCaseDetailPage";
+import StudentNoteFormPage from "./pages/StudentNoteFormPage";
+import StudentOrderEntryPage from "./pages/StudentOrderEntryPage";
 const sessionKey = "careflow-demo-user";
 
 function App() {
@@ -37,6 +39,8 @@ function App() {
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [studentCases, setStudentCases] = useState(initialStudentCases);
+  const [studentNotes, setStudentNotes] = useState({});
+  const [studentOrders, setStudentOrders] = useState({});
   const [classrooms, setClassrooms] = useState(starterClassrooms);
   const [activeClassroomId, setActiveClassroomId] = useState("classroom-1");
   const activeClassroom =
@@ -137,19 +141,49 @@ function App() {
   }
 
   function updateCaseStatus(userId, caseId, newStatus) {
-  setStudentCases((previousCases) => ({
-    ...previousCases,
+    setStudentCases((previousCases) => ({
+      ...previousCases,
 
-    [userId]: (previousCases[userId] || []).map((patientCase) =>
-      patientCase.id === caseId
-        ? {
-            ...patientCase,
-            encounterStatus: newStatus,
-          }
-        : patientCase
-    ),
-  }));
-}
+      [userId]: (previousCases[userId] || []).map((patientCase) =>
+        patientCase.id === caseId
+          ? {
+              ...patientCase,
+              encounterStatus: newStatus,
+            }
+          : patientCase
+      ),
+    }));
+  }
+
+  function saveStudentNote(caseId, note) {
+    setStudentNotes((previousNotes) => ({
+      ...previousNotes,
+      [caseId]: note,
+    }));
+  }
+
+    function updateNoteStatus(userId, caseId, newStatus) {
+    setStudentCases((previousCases) => ({
+      ...previousCases,
+
+      [userId]: (previousCases[userId] || []).map(
+        (patientCase) =>
+          patientCase.id === caseId
+            ? {
+                ...patientCase,
+                noteStatus: newStatus,
+              }
+            : patientCase
+      ),
+    }));
+  }
+
+  function saveStudentOrders(caseId, orders) {
+    setStudentOrders((previousOrders) => ({
+      ...previousOrders,
+      [caseId]: orders,
+    }));
+  }
 
   function handleLogin(authenticatedUser) {
     sessionStorage.setItem(sessionKey, JSON.stringify(authenticatedUser));
@@ -187,6 +221,8 @@ function App() {
     Student: {
       overview: StudentDashboardPage,
       caseDetail: StudentCaseDetailPage,
+      noteForm: StudentNoteFormPage,
+      orderEntry: StudentOrderEntryPage,
       settings: SettingsPage,
     },
   };
@@ -219,6 +255,11 @@ function App() {
         setSelectedCaseId={setSelectedCaseId}
         studentCases={studentCases}
         updateCaseStatus={updateCaseStatus}
+        studentNotes={studentNotes}
+        saveStudentNote={saveStudentNote}
+        updateNoteStatus={updateNoteStatus}
+        studentOrders={studentOrders}
+        saveStudentOrders={saveStudentOrders}
         cohortStudents={cohortStudents}
         cohortGroups={cohortGroups}
         classrooms={classrooms}
