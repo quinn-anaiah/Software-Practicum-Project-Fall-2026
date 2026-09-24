@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { authenticate } from "../lib/auth";
+import RegisterPage from "./RegisterPage";
 
 function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("dr.rivera@careflow.test");
   const [password, setPassword] = useState("Careflow2026!");
   const [error, setError] = useState("");
+  const [showRegister, setShowRegister] = useState(false);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -17,6 +19,15 @@ function LoginPage({ onLogin }) {
 
     onLogin(user);
   }
+  if (showRegister) {
+    return (
+      <RegisterPage 
+        onRegister={onLogin} 
+        onSwitchToLogin={() => setShowRegister(false)} 
+      />
+    );
+  }
+
 
   return (
     <main className="login-page">
@@ -70,6 +81,9 @@ function LoginPage({ onLogin }) {
             )}
             <button className="login-submit" type="submit">
               Sign in to dashboard <span>→</span>
+            </button>
+            <button className="signup" type="button" onClick={() => setShowRegister(true)}> {/**Should trigger to register page not dashboard like it currentlyy does */}
+              Sign Up <span>→</span>
             </button>
           </form>
           <div className="demo-credentials">
