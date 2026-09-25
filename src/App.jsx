@@ -196,6 +196,16 @@ function App() {
     setUser(null);
   }
 
+
+  //handle register should be defined here, where its can access the list of user accounts,go here then
+  function handleRegister(){
+    //recieves new user as an object
+    //then checks that no user with that email, or firstname+lastname combo exists
+    //then creates the new user, adding it to the user list
+    //this is expected to eventually update the database
+  }
+  //we should be able to check that confirm password = password and validate the password strength, before calling handle register
+  //
   if (!user) return <LoginPage onLogin={handleLogin} />;
 
   const pageSetsByRole = {

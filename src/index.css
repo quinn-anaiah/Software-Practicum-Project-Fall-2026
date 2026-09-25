@@ -1398,6 +1398,15 @@ button {
   font-size: 15px;
   line-height: 1.65;
 }
+.login-page select {
+  padding: 9px;
+  border: 1px solid #dfe4ed;
+  border-radius: 7px;
+  color: #47546d;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
 .login-quote {
   display: grid;
   grid-template-columns: 26px 1fr;
