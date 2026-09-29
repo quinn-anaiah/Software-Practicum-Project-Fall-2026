@@ -1,10 +1,56 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authenticate } from "../lib/auth";
+import { fetchRoles } from "../lib/api";
+
+function describeSupabaseError(error) {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === "object") {
+    const databaseError = error;
+    return [
+      databaseError.code,
+      databaseError.message,
+      databaseError.details,
+      databaseError.hint,
+    ]
+      .filter(Boolean)
+      .join(" — ");
+  }
+
+  return String(error || "Unknown Supabase error");
+}
 
 function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("dr.rivera@careflow.test");
   const [password, setPassword] = useState("Careflow2026!");
   const [error, setError] = useState("");
+  const [roles, setRoles] = useState([]);
+  const [rolesStatus, setRolesStatus] = useState("loading");
+  const [rolesError, setRolesError] = useState("");
+
+  useEffect(() => {
+    let isCurrent = true;
+
+    async function loadRoles() {
+      try {
+        const roleRows = await fetchRoles();
+        if (isCurrent) {
+          setRoles(roleRows);
+          setRolesStatus("ready");
+        }
+      } catch (fetchError) {
+        if (isCurrent) {
+          setRolesError(describeSupabaseError(fetchError));
+          setRolesStatus("error");
+        }
+      }
+    }
+
+    loadRoles();
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -83,6 +129,26 @@ function LoginPage({ onLogin }) {
             <span>Patient: morgan.lee@careflow.test</span>
             <span>Password: Welcome123!</span>
           </div>
+          <section className="database-status" aria-live="polite">
+            <strong>Supabase role lookup</strong>
+            {rolesStatus === "loading" && <span>Loading roles…</span>}
+            {rolesStatus === "ready" && (
+              <div className="database-status__roles">
+                {roles.map((role) => (
+                  <span key={role.id}>{role.name}</span>
+                ))}
+              </div>
+            )}
+            {rolesStatus === "error" && (
+              <>
+                <span>
+                  Unable to read roles. Confirm that the roles are seeded and
+                  the read policy below has been created.
+                </span>
+                <code>{rolesError}</code>
+              </>
+            )}
+          </section>
         </div>
       </section>
     </main>
