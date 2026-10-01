@@ -50,6 +50,14 @@ function StudentNoteFormPage({
   const patientCase = cases.find(
     (c) => c.id === selectedCaseId
   );
+  
+  if (
+  patientCase &&
+  patientCase.encounterStatus !== "In progress"
+) {
+  onNavigate("caseDetail");
+  return null;
+}
 
   const existingNote = studentNotes[selectedCaseId];
 
@@ -203,7 +211,7 @@ function StudentNoteFormPage({
               type="button"
               onClick={handleSaveDraft}
             >
-              Save Draft
+              Save Note
             </button>
           </div>
         </form>

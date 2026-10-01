@@ -6,11 +6,15 @@ function StudentCaseDetailPage({
   onNavigate,
   studentCases,
   updateCaseStatus,
+  studentNotes,
   studentOrders,
+  studentSubmissions,
 }) {
   const cases = studentCases[user.id] || [];
   const patientCase = cases.find((c) => c.id === selectedCaseId);
+  const notes = studentNotes[selectedCaseId] || [];
   const orders = studentOrders[selectedCaseId] || [];
+  const submission = studentSubmissions[selectedCaseId];
 
   if (!patientCase) {
     return (
@@ -61,7 +65,7 @@ function StudentCaseDetailPage({
     }
   }
 
-  return (
+    return (
     <div className="dashboard-page content-page">
       <section className="page-heading">
         <div>
@@ -80,41 +84,51 @@ function StudentCaseDetailPage({
 
       <section className="panel data-panel">
         <dl className="detail-form-grid">
-            <div className="detail-field">
-                <dt>Age</dt>
-                <dd>{patientCase.patientAge}</dd>
-            </div>
-            <div className="detail-field">
-                <dt>Sex</dt>
-                <dd>{patientCase.patientSex}</dd>
-            </div>
-            <div className="detail-field detail-field--wide">
-                <dt>Chief complaint</dt>
-                <dd>{patientCase.chiefComplaint}</dd>
-            </div>
-            <div className="detail-field detail-field--wide">
-                <dt>History</dt>
-                <dd>{patientCase.history}</dd>
-            </div>
-            <div className="detail-field detail-field--wide">
-                <dt>Current medications</dt>
-                <dd>
-                <ul>
-                    {patientCase.medications.map((med) => (
-                    <li key={med}>{med}</li>
-                    ))}
-                </ul>
-                </dd>
-            </div>
-            <div className="detail-field detail-field--wide">
-                <dt>Results</dt>
-                <dd>{patientCase.results}</dd>
-            </div>
-            <div className="detail-field">
+          <div className="detail-field">
+            <dt>Age</dt>
+            <dd>{patientCase.patientAge}</dd>
+          </div>
+
+          <div className="detail-field">
+            <dt>Sex</dt>
+            <dd>{patientCase.patientSex}</dd>
+          </div>
+
+          <div className="detail-field detail-field--wide">
+            <dt>Chief complaint</dt>
+            <dd>{patientCase.chiefComplaint}</dd>
+          </div>
+
+          <div className="detail-field detail-field--wide">
+            <dt>History</dt>
+            <dd>{patientCase.history}</dd>
+          </div>
+
+          <div className="detail-field detail-field--wide">
+            <dt>Current medications</dt>
+            <dd>
+              <ul>
+                {patientCase.medications.map((med) => (
+                  <li key={med}>{med}</li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+
+          <div className="detail-field detail-field--wide">
+            <dt>Results</dt>
+            <dd>{patientCase.results}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="panel data-panel">
+        <dl className="detail-form-grid">
+          <div className="detail-field">
             <dt>Encounter status</dt>
 
             <dd className="status-action">
-              <span className="status-badge--active">
+              <span>
                 {patientCase.encounterStatus}
               </span>
 
@@ -134,13 +148,14 @@ function StudentCaseDetailPage({
             <dt>Note status</dt>
 
             <dd className="status-action">
-              <span className="status-badge--completed">
+              <span>
                 {patientCase.noteStatus}
               </span>
 
               <button
                 className="primary-button"
                 type="button"
+                disabled={patientCase.encounterStatus !== "In progress"}
                 onClick={() => onNavigate("noteForm")}
               >
                 {patientCase.noteStatus === "Not started"
@@ -149,33 +164,64 @@ function StudentCaseDetailPage({
               </button>
             </dd>
           </div>
+
           <div className="detail-field">
-          <dt>Orders</dt>
+            <dt>Orders</dt>
+
+            <dd className="status-action">
+              <span>
+                {orders.length === 0
+                  ? "No orders"
+                  : `${orders.length} draft ${
+                      orders.length === 1
+                        ? "order"
+                        : "orders"
+                    }`}
+              </span>
+
+              <button
+                className="primary-button"
+                type="button"
+                disabled={patientCase.encounterStatus !== "In progress"}
+                onClick={() => onNavigate("orderEntry")}
+              >
+                {orders.length === 0
+                  ? "Add Orders"
+                  : "Manage Orders"}
+              </button>
+            </dd>
+          </div>
+
+          <div className="detail-field">
+          <dt>Submission</dt>
 
           <dd className="status-action">
             <span>
-              {orders.length === 0
-                ? "No draft orders"
-                : `${orders.length} draft ${
-                    orders.length === 1
-                      ? "order"
-                      : "orders"
-                  }`}
+              {submission?.status ||
+                (!studentNotes[selectedCaseId] || orders.length === 0
+                  ? "Not ready"
+                  : "Ready for review")}
             </span>
 
             <button
               className="primary-button"
               type="button"
-              onClick={() => onNavigate("orderEntry")}
+              disabled={
+                patientCase.encounterStatus !== "In progress" ||
+                !studentNotes[selectedCaseId] ||
+                orders.length === 0 ||
+                submission?.status === "Pending Review"
+              }
+              onClick={() => onNavigate("submission")}
             >
-              {orders.length === 0
-                ? "Add Orders"
-                : "Manage Orders"}
+              {submission?.status === "Pending Review"
+                ? "Submitted"
+                : "Submit for Review"}
             </button>
           </dd>
         </div>
-        </dl>
 
+        </dl>
       </section>
     </div>
   );

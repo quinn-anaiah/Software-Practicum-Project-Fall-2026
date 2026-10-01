@@ -27,6 +27,8 @@ import {
 import StudentCaseDetailPage from "./pages/StudentCaseDetailPage";
 import StudentNoteFormPage from "./pages/StudentNoteFormPage";
 import StudentOrderEntryPage from "./pages/StudentOrderEntryPage";
+import StudentSubmissionPage from "./pages/StudentSubmissionPage";
+
 const sessionKey = "careflow-demo-user";
 
 function App() {
@@ -41,6 +43,7 @@ function App() {
   const [studentCases, setStudentCases] = useState(initialStudentCases);
   const [studentNotes, setStudentNotes] = useState({});
   const [studentOrders, setStudentOrders] = useState({});
+  const [studentSubmissions, setStudentSubmissions] = useState({});
   const [classrooms, setClassrooms] = useState(starterClassrooms);
   const [activeClassroomId, setActiveClassroomId] = useState("classroom-1");
   const activeClassroom =
@@ -185,6 +188,20 @@ function App() {
     }));
   }
 
+  function submitStudentWork(userId, caseId, signatureName) {
+  setStudentSubmissions((previousSubmissions) => ({
+    ...previousSubmissions,
+    [caseId]: {
+      status: "Pending Review",
+      submittedBy: userId,
+      signatureName,
+      submittedAt: new Date().toISOString(),
+    },
+  }));
+
+  updateNoteStatus(userId, caseId, "Pending Review");
+  }
+
   function handleLogin(authenticatedUser) {
     sessionStorage.setItem(sessionKey, JSON.stringify(authenticatedUser));
     setUser(authenticatedUser);
@@ -223,6 +240,7 @@ function App() {
       caseDetail: StudentCaseDetailPage,
       noteForm: StudentNoteFormPage,
       orderEntry: StudentOrderEntryPage,
+      submission: StudentSubmissionPage, 
       settings: SettingsPage,
     },
   };
@@ -260,6 +278,8 @@ function App() {
         updateNoteStatus={updateNoteStatus}
         studentOrders={studentOrders}
         saveStudentOrders={saveStudentOrders}
+        studentSubmissions={studentSubmissions}
+        submitStudentWork={submitStudentWork}
         cohortStudents={cohortStudents}
         cohortGroups={cohortGroups}
         classrooms={classrooms}

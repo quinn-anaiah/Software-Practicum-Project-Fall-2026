@@ -14,6 +14,14 @@ function StudentOrderEntryPage({
     (c) => c.id === selectedCaseId
   );
 
+  if (
+  patientCase &&
+  patientCase.encounterStatus !== "In progress"
+) {
+  onNavigate("caseDetail");
+  return null;
+}
+
   const existingOrders =
     studentOrders[selectedCaseId] || [];
 
