@@ -1,16 +1,6 @@
-import {
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useNavigate,
-} from "react-router-dom";
+import {Navigate, Route, Routes, useLocation, useNavigate} from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
-import {
-  instructorNavigation,
-  patientNavigation,
-  studentNavigation,
-} from "../lib/navigation";
+import {instructorNavigation, patientNavigation, studentNavigation} from "../lib/navigation";
 import CareTeamPage from "../pages/CareTeamPage";
 import HealthInsightsPage from "../pages/HealthInsightsPage";
 import InstructorCasesPage from "../pages/InstructorCasesPage";
