@@ -2,31 +2,8 @@ import { useState } from "react";
 import { adminPatients as initialPatients } from "./lib/adminData";
 import { starterClassrooms } from "./lib/instructorData";
 import { studentCases as initialStudentCases } from "./lib/studentData";
-import CareTeamPage from "./pages/CareTeamPage";
-import DashboardLayout from "./components/DashboardLayout";
-import HealthInsightsPage from "./pages/HealthInsightsPage";
-import InstructorCasesPage from "./pages/InstructorCasesPage";
-import InstructorCohortsPage from "./pages/InstructorCohortsPage";
-import InstructorDashboardPage from "./pages/InstructorDashboardPage";
-import InstructorExpectationsPage from "./pages/InstructorExpectationsPage";
-import InstructorMonitoringPage from "./pages/InstructorMonitoringPage";
-import InstructorOversightPage from "./pages/InstructorOversightPage";
-import InstructorReviewPage from "./pages/InstructorReviewPage";
-import InstructorFeedbackPage from "./pages/InstructorFeedbackPage";
-import InstructorCloseoutPage from "./pages/InstructorCloseoutPage";
-import LoginPage from "./pages/LoginPage";
-import PatientDashboardPage from "./pages/PatientDashboardPage";
-import PatientAppointmentsPage from "./pages/PatientAppointmentsPage";
-import SettingsPage from "./pages/SettingsPage";
-import StudentDashboardPage from "./pages/StudentDashboardPage";
-import {
-  instructorNavigation,
-  patientNavigation,
-  studentNavigation,
-} from "./lib/navigation";
-import StudentCaseDetailPage from "./pages/StudentCaseDetailPage";
-import StudentNoteFormPage from "./pages/StudentNoteFormPage";
-import StudentOrderEntryPage from "./pages/StudentOrderEntryPage";
+import AppRouter from "./routes/AppRouter";
+
 const sessionKey = "careflow-demo-user";
 
 function App() {
@@ -34,7 +11,6 @@ function App() {
     const savedUser = sessionStorage.getItem(sessionKey);
     return savedUser ? JSON.parse(savedUser) : null;
   });
-  const [activePage, setActivePage] = useState("overview");
   const [patients, setPatients] = useState(initialPatients);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [selectedCaseId, setSelectedCaseId] = useState(null);
@@ -52,7 +28,15 @@ function App() {
   const rosterConfirmed = activeClassroom.rosterConfirmed;
 
   function addPatient(newPatient) {
-    setPatients((prev) => [...prev, newPatient]);
+    setPatients((previousPatients) => [...previousPatients, newPatient]);
+  }
+
+  function updateActiveClassroom(update) {
+    setClassrooms((currentClassrooms) =>
+      currentClassrooms.map((classroom) =>
+        classroom.id === activeClassroomId ? update(classroom) : classroom,
+      ),
+    );
   }
 
   function addCohortStudent(student) {
@@ -73,8 +57,9 @@ function App() {
       activeClassroom.groups.some(
         (group) => group.toLowerCase() === trimmedName.toLowerCase(),
       )
-    )
+    ) {
       return false;
+    }
 
     updateActiveClassroom((classroom) => ({
       ...classroom,
@@ -110,14 +95,6 @@ function App() {
     }));
   }
 
-  function updateActiveClassroom(update) {
-    setClassrooms((currentClassrooms) =>
-      currentClassrooms.map((classroom) =>
-        classroom.id === activeClassroomId ? update(classroom) : classroom,
-      ),
-    );
-  }
-
   function addClassroom(classroomName) {
     const name = classroomName.trim();
     if (
@@ -125,8 +102,10 @@ function App() {
       classrooms.some(
         (classroom) => classroom.name.toLowerCase() === name.toLowerCase(),
       )
-    )
+    ) {
       return false;
+    }
+
     const classroom = {
       id: `classroom-${Date.now()}`,
       name,
@@ -143,37 +122,25 @@ function App() {
   function updateCaseStatus(userId, caseId, newStatus) {
     setStudentCases((previousCases) => ({
       ...previousCases,
-
       [userId]: (previousCases[userId] || []).map((patientCase) =>
         patientCase.id === caseId
-          ? {
-              ...patientCase,
-              encounterStatus: newStatus,
-            }
-          : patientCase
+          ? { ...patientCase, encounterStatus: newStatus }
+          : patientCase,
       ),
     }));
   }
 
   function saveStudentNote(caseId, note) {
-    setStudentNotes((previousNotes) => ({
-      ...previousNotes,
-      [caseId]: note,
-    }));
+    setStudentNotes((previousNotes) => ({ ...previousNotes, [caseId]: note }));
   }
 
-    function updateNoteStatus(userId, caseId, newStatus) {
+  function updateNoteStatus(userId, caseId, newStatus) {
     setStudentCases((previousCases) => ({
       ...previousCases,
-
-      [userId]: (previousCases[userId] || []).map(
-        (patientCase) =>
-          patientCase.id === caseId
-            ? {
-                ...patientCase,
-                noteStatus: newStatus,
-              }
-            : patientCase
+      [userId]: (previousCases[userId] || []).map((patientCase) =>
+        patientCase.id === caseId
+          ? { ...patientCase, noteStatus: newStatus }
+          : patientCase,
       ),
     }));
   }
@@ -188,7 +155,6 @@ function App() {
   function handleLogin(authenticatedUser) {
     sessionStorage.setItem(sessionKey, JSON.stringify(authenticatedUser));
     setUser(authenticatedUser);
-    setActivePage("overview");
   }
 
   function handleLogout() {
@@ -196,85 +162,42 @@ function App() {
     setUser(null);
   }
 
-  if (!user) return <LoginPage onLogin={handleLogin} />;
-
-  const pageSetsByRole = {
-    Instructor: {
-      overview: InstructorDashboardPage,
-      cohorts: InstructorCohortsPage,
-      cases: InstructorCasesPage,
-      expectations: InstructorExpectationsPage,
-      monitoring: InstructorMonitoringPage,
-      review: InstructorReviewPage,
-      feedback: InstructorFeedbackPage,
-      oversight: InstructorOversightPage,
-      closeout: InstructorCloseoutPage,
-      settings: SettingsPage,
-    },
-    Patient: {
-      overview: PatientDashboardPage,
-      careTeam: CareTeamPage,
-      appointments: PatientAppointmentsPage,
-      insights: HealthInsightsPage,
-      settings: SettingsPage,
-    },
-    Student: {
-      overview: StudentDashboardPage,
-      caseDetail: StudentCaseDetailPage,
-      noteForm: StudentNoteFormPage,
-      orderEntry: StudentOrderEntryPage,
-      settings: SettingsPage,
-    },
+  const pageProps = {
+    patients,
+    addPatient,
+    selectedPatientId,
+    setSelectedPatientId,
+    selectedCaseId,
+    setSelectedCaseId,
+    studentCases,
+    updateCaseStatus,
+    studentNotes,
+    saveStudentNote,
+    updateNoteStatus,
+    studentOrders,
+    saveStudentOrders,
+    cohortStudents,
+    cohortGroups,
+    classrooms,
+    activeClassroom,
+    setActiveClassroomId,
+    addClassroom,
+    addCohortStudent,
+    addCohortGroup,
+    instructorCases,
+    addInstructorCase,
+    updateInstructorCase,
+    rosterConfirmed,
+    setRosterConfirmed,
   };
-
-  const navigationByRole = {
-    Instructor: instructorNavigation,
-    Patient: patientNavigation,
-    Student: studentNavigation,
-  };
-
-  const pages = pageSetsByRole[user.role] || pageSetsByRole.Patient;
-  const ActivePage = pages[activePage] || pages.overview;
 
   return (
-    <DashboardLayout
-      activePage={activePage}
-      navItems={navigationByRole[user.role] || patientNavigation}
+    <AppRouter
+      onLogin={handleLogin}
       onLogout={handleLogout}
-      onNavigate={setActivePage}
+      pageProps={pageProps}
       user={user}
-    >
-      <ActivePage
-        user={user}
-        patients={patients}
-        addPatient={addPatient}
-        onNavigate={setActivePage}
-        selectedPatientId={selectedPatientId}
-        setSelectedPatientId={setSelectedPatientId}
-        selectedCaseId={selectedCaseId}
-        setSelectedCaseId={setSelectedCaseId}
-        studentCases={studentCases}
-        updateCaseStatus={updateCaseStatus}
-        studentNotes={studentNotes}
-        saveStudentNote={saveStudentNote}
-        updateNoteStatus={updateNoteStatus}
-        studentOrders={studentOrders}
-        saveStudentOrders={saveStudentOrders}
-        cohortStudents={cohortStudents}
-        cohortGroups={cohortGroups}
-        classrooms={classrooms}
-        activeClassroom={activeClassroom}
-        setActiveClassroomId={setActiveClassroomId}
-        addClassroom={addClassroom}
-        addCohortStudent={addCohortStudent}
-        addCohortGroup={addCohortGroup}
-        instructorCases={instructorCases}
-        addInstructorCase={addInstructorCase}
-        updateInstructorCase={updateInstructorCase}
-        rosterConfirmed={rosterConfirmed}
-        setRosterConfirmed={setRosterConfirmed}
-      />
-    </DashboardLayout>
+    />
   );
 }
 
