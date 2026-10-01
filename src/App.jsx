@@ -198,15 +198,29 @@ function App() {
 
 
   //handle register should be defined here, where its can access the list of user accounts,go here then
-  function handleRegister(){
-    //recieves new user as an object
-    //then checks that no user with that email, or firstname+lastname combo exists
-    //then creates the new user, adding it to the user list
-    //this is expected to eventually update the database
+ async function handleRegister(formData) {
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        return { success: false, message: result.message };
+      }
+
+      // Automatically sign them in upon successful cloud database registration
+      handleLogin(result.user);
+      return { success: true, message: result.message };
+    } catch (error) {
+      console.error("Network or server error during registration:", error);
+      return { success: false, message: "Could not connect to the server." };
+    }
   }
-  //we should be able to check that confirm password = password and validate the password strength, before calling handle register
-  //
-  if (!user) return <LoginPage onLogin={handleLogin} />;
+  if (!user) return <LoginPage onLogin={handleLogin } onRegister={handleRegister}/>;
 
   const pageSetsByRole = {
     Instructor: {

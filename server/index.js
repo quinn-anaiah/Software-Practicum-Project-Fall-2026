@@ -1,6 +1,8 @@
 import express from "express";
 import pg from "pg";
 import rolesRouter from "./routes/roles.js";
+import authRouter from "./routes/auth.js";
+
 
 const { Pool } = pg;
 const app = express();
@@ -36,3 +38,5 @@ app.get("/api/patients", async (_request, response) => {
 app.listen(port, () => {
   console.log(`EMR API listening at http://localhost:${port}`);
 });
+
+app.use("/api/auth", authRouter);

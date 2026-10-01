@@ -21,7 +21,7 @@ function describeSupabaseError(error) {
   return String(error || "Unknown Supabase error");
 }
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, onRegister }) {
   const [email, setEmail] = useState("dr.rivera@careflow.test");
   const [password, setPassword] = useState("Careflow2026!");
   const [error, setError] = useState("");
@@ -68,7 +68,8 @@ function LoginPage({ onLogin }) {
   if (showRegister) {
     return (
       <RegisterPage 
-        onRegister={onLogin} 
+        onRegister={onRegister}
+        onLogin={onLogin} 
         onSwitchToLogin={() => setShowRegister(false)} 
       />
     );
