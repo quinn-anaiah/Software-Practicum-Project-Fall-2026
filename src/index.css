@@ -1590,6 +1590,45 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.database-status {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #d8ece7;
+  border-radius: 8px;
+  color: #66758c;
+  background: #f4fbf9;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.database-status strong {
+  color: #3f6f6b;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.database-status__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.database-status__roles span {
+  padding: 4px 7px;
+  border-radius: 5px;
+  color: #386f65;
+  background: #dff5ef;
+  font-weight: 700;
+}
+.database-status code {
+  padding: 7px;
+  border-radius: 5px;
+  color: #9b4b53;
+  background: #fff0f1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 800px) {
   .login-page {
     grid-template-columns: 1fr;
