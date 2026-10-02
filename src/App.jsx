@@ -177,45 +177,34 @@ function App() {
     setUser(null);
   }
 
-  if (!user) return <LoginPage onLogin={handleLogin} />;
-
-  const pageSetsByRole = {
-    Instructor: {
-      overview: InstructorDashboardPage,
-      cohorts: InstructorCohortsPage,
-      cases: InstructorCasesPage,
-      expectations: InstructorExpectationsPage,
-      monitoring: InstructorMonitoringPage,
-      review: InstructorReviewPage,
-      feedback: InstructorFeedbackPage,
-      oversight: InstructorOversightPage,
-      closeout: InstructorCloseoutPage,
-      settings: SettingsPage,
-    },
-    Patient: {
-      overview: PatientDashboardPage,
-      careTeam: CareTeamPage,
-      appointments: PatientAppointmentsPage,
-      insights: HealthInsightsPage,
-      settings: SettingsPage,
-    },
-    Student: {
-      overview: StudentDashboardPage,
-      caseDetail: StudentCaseDetailPage,
-      noteForm: StudentNoteFormPage,
-      orderEntry: StudentOrderEntryPage,
-      settings: SettingsPage,
-    },
+  const pageProps = {
+    patients,
+    addPatient,
+    selectedPatientId,
+    setSelectedPatientId,
+    selectedCaseId,
+    setSelectedCaseId,
+    studentCases,
+    updateCaseStatus,
+    studentNotes,
+    saveStudentNote,
+    updateNoteStatus,
+    studentOrders,
+    saveStudentOrders,
+    cohortStudents,
+    cohortGroups,
+    classrooms,
+    activeClassroom,
+    setActiveClassroomId,
+    addClassroom,
+    addCohortStudent,
+    addCohortGroup,
+    instructorCases,
+    addInstructorCase,
+    updateInstructorCase,
+    rosterConfirmed,
+    setRosterConfirmed,
   };
-
-  const navigationByRole = {
-    Instructor: instructorNavigation,
-    Patient: patientNavigation,
-    Student: studentNavigation,
-  };
-
-  const pages = pageSetsByRole[user.role] || pageSetsByRole.Patient;
-  const ActivePage = pages[activePage] || pages.overview;
 
   return (
     <AppRouter
@@ -223,38 +212,7 @@ function App() {
       onLogout={handleLogout}
       pageProps={pageProps}
       user={user}
-    >
-      <ActivePage
-        user={user}
-        patients={patients}
-        addPatient={addPatient}
-        onNavigate={setActivePage}
-        selectedPatientId={selectedPatientId}
-        setSelectedPatientId={setSelectedPatientId}
-        selectedCaseId={selectedCaseId}
-        setSelectedCaseId={setSelectedCaseId}
-        studentCases={studentCases}
-        updateCaseStatus={updateCaseStatus}
-        studentNotes={studentNotes}
-        saveStudentNote={saveStudentNote}
-        updateNoteStatus={updateNoteStatus}
-        studentOrders={studentOrders}
-        saveStudentOrders={saveStudentOrders}
-        cohortStudents={cohortStudents}
-        cohortGroups={cohortGroups}
-        classrooms={classrooms}
-        activeClassroom={activeClassroom}
-        setActiveClassroomId={setActiveClassroomId}
-        addClassroom={addClassroom}
-        addCohortStudent={addCohortStudent}
-        addCohortGroup={addCohortGroup}
-        instructorCases={instructorCases}
-        addInstructorCase={addInstructorCase}
-        updateInstructorCase={updateInstructorCase}
-        rosterConfirmed={rosterConfirmed}
-        setRosterConfirmed={setRosterConfirmed}
-      />
-    </DashboardLayout>
+    />
   );
 }
 
