@@ -1,6 +1,6 @@
 import {Navigate, Route, Routes, useLocation, useNavigate} from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
-import {instructorNavigation, patientNavigation, studentNavigation} from "../lib/navigation";
+import {adminNavigation, instructorNavigation, patientNavigation, studentNavigation} from "../lib/navigation";
 import CareTeamPage from "../pages/CareTeamPage";
 import HealthInsightsPage from "../pages/HealthInsightsPage";
 import InstructorCasesPage from "../pages/InstructorCasesPage";
@@ -20,8 +20,32 @@ import StudentCaseDetailPage from "../pages/StudentCaseDetailPage";
 import StudentDashboardPage from "../pages/StudentDashboardPage";
 import StudentNoteFormPage from "../pages/StudentNoteFormPage";
 import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
+import AdminDashboardPage from "../pages/AdminDashboardPage";
+import AdminPatientsPage from "../pages/AdminPatientsPage";
+import AdminPatientInfoPage from "../pages/AdminPatientInfoPage";
+import AdminAddUsersPage from "../pages/AdminAddUsersPage";
 
 const routesByRole = {
+  //Routes for users with the Admin role
+  Admin: {
+    // Define the navigation and pages for the Admin role
+    //this tell the sidebar what to display and what pages to route to
+    navigation: adminNavigation,
+    // Define the pages for the Admin role
+    pages: {
+      //Main dashboard page for the Admin role
+      overview: { path: "/admin", Component: AdminDashboardPage },
+      //Page for managing patients in the Admin role
+      patients: { path: "/admin/patients", Component: AdminPatientsPage },
+      //Page for viewing one patient details in the Admin role
+      patientDetail: { path: "/admin/patient", Component: AdminPatientInfoPage },
+      //Page for adding new patients in the Admin role
+      addPatient: { path: "/admin/add-patient", Component: AdminAddUsersPage },
+      //Page of existing settings for the Admin role
+      settings: { path: "/admin/settings", Component: SettingsPage },
+    },
+  },
+
   Instructor: {
     navigation: instructorNavigation,
     pages: {
@@ -138,6 +162,16 @@ function AppRouter({ onLogin, onLogout, pageProps, user }) {
           )
         }
         path="/login"
+      />
+      <Route
+        element={
+          <DashboardRoute
+            onLogout={handleLogout}
+            pageProps={pageProps}
+            user={user}
+          />
+        }
+        path="/admin/*"
       />
       <Route
         element={

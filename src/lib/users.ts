@@ -33,4 +33,13 @@ export const demoUsers: DemoUser[] = [
     role: "Student",
     initials: "JL",
   },
+  
+  {
+    id: "usr-004",
+    name: "Careflow Admin",
+    email: "admin@careflow.test",
+    password: "Admin123!",
+    role: "Admin",
+    initials: "CA",
+  }
 ];

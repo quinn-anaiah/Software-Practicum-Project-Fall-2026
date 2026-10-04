@@ -128,6 +128,9 @@ function LoginPage({ onLogin }) {
             <hr></hr>
             <span>Patient: morgan.lee@careflow.test</span>
             <span>Password: Welcome123!</span>
+            <hr></hr>
+            <span>Admin: admin@careflow.test</span>
+            <span>Password: Admin123!</span>
           </div>
           <section className="database-status" aria-live="polite">
             <strong>Supabase role lookup</strong>

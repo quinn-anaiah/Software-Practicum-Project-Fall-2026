@@ -1,5 +1,5 @@
 import Icon from "../components/Icon";
-import { adminPatients } from "../lib/adminData";
+
 
 const schedule = [
   {
@@ -25,46 +25,47 @@ const schedule = [
   },
 ];
 
-function AdminDashboardPage({ user }) {
+function AdminDashboardPage({ user, onNavigate, patients, cohortStudents, instructorCases }) {
   return (
     <div className="dashboard-page">
       <section className="page-heading">
         <div>
           <p className="section-label">Administrator workspace</p>
           <h1>Good morning, {user.name}</h1>
-          <p>Here’s the latest across your practice.</p>
+          <p>Here’s the latest across the Careflow learning environment.</p>
         </div>
-        <button className="primary-button" type="button">
+        <button className="primary-button" type="button" onClick={() => onNavigate("addPatient")}>
           <Icon name="plus" size={18} /> Add patient
         </button>
       </section>
-      <section aria-label="Practice summary" className="metric-grid">
+      <section aria-label="System summary" className="metric-grid">
         <Metric
           label="Total patients"
-          value={adminPatients.length}
+          value={patients.length}
           change="Demo patient directory"
           icon="patients"
           tone="teal"
         />
         <Metric
-          label="Today’s appointments"
-          value="12"
-          change="3 remaining"
-          icon="calendar"
+          label="Active students"
+          value={cohortStudents.length}
+          change="Students in current cohort"
+          icon="patients"
           tone="blue"
         />
         <Metric
-          label="Pending tasks"
-          value="08"
-          change="2 due today"
-          icon="chart"
+          label="Instructors"
+          value="1"
+          change="Active instructor account"
+          icon="grid"
           tone="lavender"
         />
+        {/* Shows how many teaching cases are currently in the system */}
         <Metric
-          label="Patient satisfaction"
-          value="94%"
-          change="↑ 4.2% this month"
-          icon="grid"
+          label="Active cases"
+          value={instructorCases.length}
+          change="Configured learning cases"
+          icon="chart"
           tone="gold"
         />
       </section>
@@ -72,8 +73,8 @@ function AdminDashboardPage({ user }) {
         <article className="panel schedule-panel">
           <div className="panel__header">
             <div>
-              <p className="section-label">Schedule</p>
-              <h2>Today’s appointments</h2>
+              <p className="section-label">Recent activity</p>
+              <h2>System activity</h2>
             </div>
             <button className="text-button" type="button">
               View calendar <Icon name="arrow" size={15} />
@@ -88,8 +89,8 @@ function AdminDashboardPage({ user }) {
         <article className="panel activity-panel">
           <div className="panel__header">
             <div>
-              <p className="section-label">Practice activity</p>
-              <h2>Weekly patient visits</h2>
+              <p className="section-label">Learner activity</p>
+              <h2>Weekly learner activity</h2>
             </div>
             <button
               aria-label="More activity options"
@@ -99,7 +100,7 @@ function AdminDashboardPage({ user }) {
               •••
             </button>
           </div>
-          <div className="chart" aria-label="Weekly patient visits chart">
+          <div className="chart" aria-label="Weekly learner activity chart">
             <div className="chart__bars">
               {[42, 62, 48, 75, 58, 86, 70].map((height, index) => (
                 <span

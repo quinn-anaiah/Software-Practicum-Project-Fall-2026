@@ -1,3 +1,8 @@
+export const adminNavigation = [
+  { id: "overview", label: "Overview", icon: "grid" },
+  { id: "patients", label: "Patients", icon: "patients" },
+];
+
 export const instructorNavigation = [
   { id: "overview", label: "Overview", icon: "grid" },
   { id: "cohorts", label: "Cohort & roster", icon: "patients" },

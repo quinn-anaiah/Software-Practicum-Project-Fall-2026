@@ -80,14 +80,10 @@ function clearSearch() {
           <strong>{filteredPatients.length} patients</strong>
           <label className="table-search">
             <Icon name="search" size={16} />
-            <input 
-              placeholder="Search patients" 
-              type="search" 
-              {/* The input value is bound to the searchText state variable
-              it will update when the user types in the search box */}
+            <input
+              placeholder="Search patients"
+              type="search"
               value={searchText}
-              {/*When the user types in the search box, the handleSearchChange function will be called
-              and update the searchText state variable */}
               onChange={handleSearchChange}
             />
 
