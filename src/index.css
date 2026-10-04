@@ -1727,6 +1727,107 @@ button {
   font-size: 13px;
   line-height: 1.6;
 }
+.app-session-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  color: #66738b;
+  background: #f8f9fc;
+  font-size: 14px;
+}
+.role-dashboard__areas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.role-dashboard__area {
+  min-height: 150px;
+}
+.role-dashboard__area h2,
+.role-dashboard__notice h2 {
+  margin: 0;
+  color: #35415e;
+  font-family: Manrope, sans-serif;
+  font-size: 17px;
+}
+.role-dashboard__area p:not(.section-label),
+.role-dashboard__notice p:not(.section-label) {
+  margin: 8px 0 0;
+  color: #7e899d;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.role-dashboard__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-top: 17px;
+}
+.role-dashboard__notice > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  color: #3c7c70;
+  background: #e3f7f1;
+  font-size: 18px;
+  font-weight: 800;
+}
+.directory-search {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 17px;
+  padding: 9px 10px 9px 15px;
+  border: 1px solid #dce2ed;
+  border-radius: 10px;
+  color: #7d899d;
+  background: #fff;
+  box-shadow: 0 5px 15px rgba(45, 61, 100, 0.04);
+}
+.directory-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: #37435f;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+.directory-search input::placeholder { color: #a0a8b6; }
+.directory-search .primary-button { padding: 10px 14px; }
+.directory-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 17px;
+}
+.directory-metrics article { padding: 19px; }
+.directory-metrics span,
+.directory-metrics small { color: #8994a8; font-size: 11px; }
+.directory-metrics strong { display: block; margin: 5px 0 3px; color: #35415e; font-family: Manrope, sans-serif; font-size: 27px; }
+.directory-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr); gap: 17px; align-items: start; }
+.directory-table-panel { min-width: 0; }
+.directory-table-panel h2, .role-chart h2, .account-detail h2 { margin: 0; color: #34405b; font-family: Manrope, sans-serif; font-size: 18px; }
+.directory-live-indicator { color: #408878; font-size: 10px; font-weight: 800; }
+.directory-loading { margin: 25px 0 8px; color: #8590a4; font-size: 12px; }
+.directory-row--selected { background: #f5f7ff; }
+.directory-sidebar { display: grid; gap: 17px; }
+.role-chart__row { display: grid; grid-template-columns: 75px 1fr 16px; gap: 9px; align-items: center; margin-top: 16px; }
+.role-chart__row span, .role-chart__row strong { color: #68758d; font-size: 11px; }
+.role-chart__row strong { text-align: right; }
+.role-chart__row i { height: 7px; overflow: hidden; border-radius: 10px; background: #edf0f5; }
+.role-chart__row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6f83da, #83d7c5); }
+.account-detail__email { margin: 6px 0 18px; color: #77849a; font-size: 12px; }
+.account-detail dl { display: grid; gap: 10px; margin: 0; }
+.account-detail dl div { padding-top: 10px; border-top: 1px solid #edf0f5; }
+.account-detail dt { color: #949dad; font-size: 10px; }
+.account-detail dd { margin: 3px 0 0; overflow-wrap: anywhere; color: #526078; font-size: 11px; }
+.account-detail__note { margin: 18px 0 0; padding: 10px; border-radius: 7px; color: #68778c; background: #f4f6fb; font-size: 10px; line-height: 1.5; }
+.directory-error { margin-bottom: 17px; border-color: #f0ced1; color: #a64e56; background: #fff5f5; font-size: 12px; }
 @media (max-width: 800px) {
   .login-page {
     grid-template-columns: 1fr;
@@ -1758,6 +1859,14 @@ button {
   .account-type-selector > div {
     grid-template-columns: 1fr;
   }
+}
+@media (max-width: 760px) {
+  .role-dashboard__areas {
+    grid-template-columns: 1fr;
+  }
+  .directory-metrics, .directory-layout { grid-template-columns: 1fr; }
+  .directory-search { align-items: stretch; flex-wrap: wrap; }
+  .directory-search input { min-width: 210px; }
 }
 .care-banner {
   display: grid;

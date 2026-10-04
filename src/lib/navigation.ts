@@ -10,6 +10,11 @@ export const instructorNavigation = [
   { id: "closeout", label: "Closeout", icon: "calendar" },
 ];
 
+export const adminNavigation = [
+  { id: "overview", label: "Operations", icon: "grid" },
+  { id: "users", label: "Global user search", icon: "patients" },
+];
+
 export const patientNavigation = [
   { id: "overview", label: "My health", icon: "grid" },
   { id: "careTeam", label: "My care team", icon: "patients" },

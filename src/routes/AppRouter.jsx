@@ -1,11 +1,14 @@
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import {
+  adminNavigation,
   instructorNavigation,
   patientNavigation,
   studentNavigation,
 } from "../lib/navigation";
 import DatabasePlaceholderPage from "../pages/DatabasePlaceholderPage";
+import AdminUserDirectoryPage from "../pages/AdminUserDirectoryPage";
+import DashboardPage from "../pages/DashboardPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import SettingsPage from "../pages/SettingsPage";
@@ -15,15 +18,18 @@ function placeholder(path, eyebrow, title, description) {
 }
 
 const routesByRole = {
+  Admin: {
+    navigation: adminNavigation,
+    pages: {
+      overview: { path: "/admin", Component: DashboardPage },
+      users: { path: "/admin/users", Component: AdminUserDirectoryPage },
+      settings: { path: "/admin/settings", Component: SettingsPage },
+    },
+  },
   Instructor: {
     navigation: instructorNavigation,
     pages: {
-      overview: placeholder(
-        "/instructor",
-        "Instructor workspace",
-        "Your instructor workspace is ready",
-        "Cohort activity, scenario progress, and review queues will appear here once they are connected to the database.",
-      ),
+      overview: { path: "/instructor", Component: DashboardPage },
       cohorts: placeholder(
         "/instructor/cohorts",
         "Cohort & roster",
@@ -78,12 +84,7 @@ const routesByRole = {
   Patient: {
     navigation: patientNavigation,
     pages: {
-      overview: placeholder(
-        "/patient",
-        "My health",
-        "Your care portal is ready",
-        "Appointments, medications, and care updates will appear once records are connected to your profile.",
-      ),
+      overview: { path: "/patient", Component: DashboardPage },
       careTeam: placeholder(
         "/patient/care-team",
         "My care team",
@@ -108,12 +109,7 @@ const routesByRole = {
   Student: {
     navigation: studentNavigation,
     pages: {
-      overview: placeholder(
-        "/student",
-        "My cases",
-        "Your learning workspace is ready",
-        "Assigned training scenarios, encounter status, and documentation requirements will appear here.",
-      ),
+      overview: { path: "/student", Component: DashboardPage },
       caseDetail: placeholder(
         "/student/case",
         "Assigned case",
@@ -224,6 +220,7 @@ function AppRouter({ onLogin, onLogout, user }) {
         path="/register"
       />
       <Route element={protectedRoute} path="/instructor/*" />
+      <Route element={protectedRoute} path="/admin/*" />
       <Route element={protectedRoute} path="/patient/*" />
       <Route element={protectedRoute} path="/student/*" />
       <Route element={<Navigate replace to={getDefaultPath(user)} />} path="*" />

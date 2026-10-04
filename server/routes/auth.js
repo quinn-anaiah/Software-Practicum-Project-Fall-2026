@@ -3,6 +3,69 @@ import { getSupabaseAdmin, supabase } from "../services/supabase.js";
 
 const authRouter = Router();
 
+function getRelationName(relation) {
+  return Array.isArray(relation) ? relation[0]?.name : relation?.name;
+}
+
+function serializeUser(profile, email) {
+  const firstName = profile.first_name || "";
+  const lastName = profile.last_name || "";
+
+  return {
+    id: profile.id,
+    name: `${firstName} ${lastName}`.trim(),
+    email: email || "",
+    role: getRelationName(profile.roles),
+    subrole: getRelationName(profile.subroles) || null,
+    initials: `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase(),
+  };
+}
+
+async function getProfileForUser(supabaseAdmin, userId) {
+  return supabaseAdmin
+    .from("profiles")
+    .select("id, first_name, last_name, roles(name), subroles(name)")
+    .eq("id", userId)
+    .single();
+}
+
+authRouter.get("/me", async (request, response) => {
+  const authorization = request.get("authorization") || "";
+  const accessToken = authorization.replace(/^Bearer\s+/i, "");
+
+  if (!accessToken) {
+    return response.status(401).json({ message: "Missing access token." });
+  }
+
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser(
+      accessToken,
+    );
+
+    if (authError || !authData.user) {
+      return response.status(401).json({ message: "Your session has expired." });
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const { data: profile, error: profileError } = await getProfileForUser(
+      supabaseAdmin,
+      authData.user.id,
+    );
+
+    if (profileError || !profile) {
+      console.error("Unable to load current user profile:", profileError?.message);
+      return response.status(403).json({
+        message: "Your account is missing its Careflow profile. Contact an administrator.",
+      });
+    }
+
+    return response.json(serializeUser(profile, authData.user.email));
+  } catch (error) {
+    console.error("Unable to restore session:", error);
+    return response.status(500).json({ message: "Unable to restore your session." });
+  }
+});
+
 authRouter.post("/login", async (request, response) => {
   const email = String(request.body.email || "")
     .trim()
@@ -26,11 +89,10 @@ authRouter.post("/login", async (request, response) => {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("id, first_name, last_name, roles(name)")
-      .eq("id", authData.user.id)
-      .single();
+    const { data: profile, error: profileError } = await getProfileForUser(
+      supabaseAdmin,
+      authData.user.id,
+    );
 
     if (profileError || !profile) {
       console.error("Unable to load user profile:", profileError?.message);
@@ -39,17 +101,13 @@ authRouter.post("/login", async (request, response) => {
       });
     }
 
-    const role = Array.isArray(profile.roles)
-      ? profile.roles[0]?.name
-      : profile.roles?.name;
-    const initials = `${profile.first_name[0] || ""}${profile.last_name[0] || ""}`.toUpperCase();
+    if (!authData.session?.access_token) {
+      return response.status(500).json({ message: "Unable to start a session." });
+    }
 
     return response.json({
-      id: profile.id,
-      name: `${profile.first_name} ${profile.last_name}`,
-      email: authData.user.email,
-      role,
-      initials,
+      ...serializeUser(profile, authData.user.email),
+      accessToken: authData.session.access_token,
     });
   } catch (error) {
     console.error("Login failed:", error);
