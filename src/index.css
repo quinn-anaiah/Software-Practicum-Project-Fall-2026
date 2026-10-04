@@ -1695,6 +1695,38 @@ button {
   font-size: 10px;
   overflow-wrap: anywhere;
 }
+.database-placeholder {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 760px;
+  padding: 26px;
+}
+.database-placeholder__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  color: #4661ba;
+  background: #ebeeff;
+  font-size: 20px;
+  font-weight: 800;
+}
+.database-placeholder h2 {
+  margin: 0;
+  color: #35415e;
+  font-family: Manrope, sans-serif;
+  font-size: 19px;
+}
+.database-placeholder p:not(.section-label) {
+  max-width: 570px;
+  margin: 8px 0 0;
+  color: #7c879b;
+  font-size: 13px;
+  line-height: 1.6;
+}
 @media (max-width: 800px) {
   .login-page {
     grid-template-columns: 1fr;

@@ -1,6 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { authenticate } from "../lib/auth";
 import { fetchRoles, loginUser } from "../lib/api";
 
 function describeSupabaseError(error) {
@@ -59,12 +58,6 @@ function LoginPage({ onLogin }) {
     event.preventDefault();
     setError("");
 
-    const demoUser = authenticate(email, password);
-    if (demoUser) {
-      onLogin(demoUser);
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const registeredUser = await loginUser({ email, password });
@@ -104,7 +97,7 @@ function LoginPage({ onLogin }) {
           <p className="section-label">Welcome back</p>
           <h2>Sign in to Careflow</h2>
           <p className="login-card__intro">
-            Sign in with a Careflow account or use a local demo account.
+            Sign in with your Careflow account to continue.
           </p>
           {searchParams.get("registered") === "1" && (
             <p className="registration-success" role="status">
@@ -139,17 +132,6 @@ function LoginPage({ onLogin }) {
               {isSubmitting ? "Signing in…" : "Sign in to dashboard"} <span>→</span>
             </button>
           </form>
-          <div className="demo-credentials">
-            <strong>Demo accounts</strong>
-            <span>Student: javier.lopez@careflow.test</span>
-            <span>Password: Student123!</span>
-            <hr></hr>
-            <span>Instructor: dr.rivera@careflow.test</span>
-            <span>Password: Careflow2026!</span>
-            <hr></hr>
-            <span>Patient: morgan.lee@careflow.test</span>
-            <span>Password: Welcome123!</span>
-          </div>
           <section className="database-status" aria-live="polite">
             <strong>Supabase role lookup</strong>
             {rolesStatus === "loading" && <span>Loading roles…</span>}
