@@ -1,7 +1,7 @@
-import { patientProfiles } from "../lib/patientData";
+import { getPatientProfile } from "../lib/patientData";
 
 function HealthInsightsPage({ user }) {
-  const { insights } = patientProfiles[user.id];
+  const { insights } = getPatientProfile(user);
   return (
     <div className="dashboard-page content-page">
       <section className="page-heading">

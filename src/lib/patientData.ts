@@ -105,3 +105,75 @@ export const patientProfiles = {
     ],
   },
 };
+
+export function getPatientProfile(user) {
+  const savedProfile = patientProfiles[user.id];
+  if (savedProfile) return savedProfile;
+
+  return {
+    provider: {
+      name: "Careflow Care Team",
+      specialty: "Patient support",
+      initials: "CF",
+    },
+    careTeam: [
+      {
+        name: "Careflow Patient Support",
+        role: "Care navigation team",
+        initials: "CF",
+        color: "teal",
+        note: "Your starting point",
+      },
+      {
+        name: "Careflow Scheduling",
+        role: "Appointment support",
+        initials: "CS",
+        color: "purple",
+        note: "Help with visits",
+      },
+    ],
+    nextAppointment: {
+      date: "To be scheduled",
+      time: "—",
+      type: "New patient welcome visit",
+      location: "Careflow Medical Center",
+    },
+    medications: [],
+    updates: [
+      {
+        title: "Your Careflow account is ready",
+        detail: "Your care team will add visit details when they are available.",
+        date: "Today",
+      },
+    ],
+    appointments: [
+      {
+        date: "Next",
+        time: "To be scheduled",
+        type: "New patient welcome visit",
+        provider: "Careflow Patient Support",
+        status: "Requested",
+      },
+    ],
+    insights: [
+      {
+        title: "Account setup",
+        value: "Complete",
+        description: "Your Careflow profile has been created.",
+        color: "teal",
+      },
+      {
+        title: "Care plan",
+        value: "Pending",
+        description: "Your care team will add personalized guidance here.",
+        color: "purple",
+      },
+      {
+        title: "Next step",
+        value: "Schedule",
+        description: "Request your first appointment when you are ready.",
+        color: "gold",
+      },
+    ],
+  };
+}

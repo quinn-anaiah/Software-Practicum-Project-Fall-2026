@@ -1,8 +1,8 @@
 import Icon from "../components/Icon";
-import { patientProfiles } from "../lib/patientData";
+import { getPatientProfile } from "../lib/patientData";
 
 function CareTeamPage({ user }) {
-  const { careTeam } = patientProfiles[user.id];
+  const { careTeam } = getPatientProfile(user);
   return (
     <div className="dashboard-page content-page">
       <section className="page-heading">

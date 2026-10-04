@@ -20,9 +20,26 @@ function StudentDashboardPage({
 
       <section className="panel data-panel">
         {cases.length === 0 ? (
-          <p>
-            No cases assigned yet. Check back once your instructor assigns one.
-          </p>
+          <div className="student-empty-state">
+            <p className="section-label">Account ready</p>
+            <h2>Your learning workspace is set up.</h2>
+            <p>
+              You do not have a training case yet. Your instructor will assign
+              cases and documentation requirements to this page.
+            </p>
+            <div className="student-empty-state__steps">
+              <span>1. Confirm your account details</span>
+              <span>2. Wait for an assigned scenario</span>
+              <span>3. Start your encounter and note</span>
+            </div>
+            <button
+              className="outline-button"
+              onClick={() => onNavigate("settings")}
+              type="button"
+            >
+              Review account settings <Icon name="arrow" size={15} />
+            </button>
+          </div>
         ) : (
           <div className="table-wrap">
             <table>

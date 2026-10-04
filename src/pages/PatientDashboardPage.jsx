@@ -1,9 +1,8 @@
 import Icon from "../components/Icon";
-import { patientProfiles } from "../lib/patientData";
+import { getPatientProfile } from "../lib/patientData";
 
 function PatientDashboardPage({ user }) {
-  const profile = patientProfiles[user.id];
-  if (!profile) return null;
+  const profile = getPatientProfile(user);
 
   return (
     <div className="dashboard-page patient-dashboard">
@@ -68,7 +67,12 @@ function PatientDashboardPage({ user }) {
             </button>
           </div>
           <div className="medication-list">
-            {profile.medications.map((medication) => (
+            {profile.medications.length === 0 ? (
+              <p className="empty-list-message">
+                No medications have been added to your profile yet.
+              </p>
+            ) : (
+              profile.medications.map((medication) => (
               <div className="medication" key={medication.name}>
                 <span
                   className={`medication__pill medication__pill--${medication.color}`}
@@ -81,7 +85,8 @@ function PatientDashboardPage({ user }) {
                 </div>
                 <span>{medication.refill}</span>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </article>
       </section>
@@ -91,16 +96,16 @@ function PatientDashboardPage({ user }) {
           <h2>Your care at a glance</h2>
           <div className="health-stats">
             <div>
-              <strong>2</strong>
+              <strong>{profile.medications.length}</strong>
               <span>Active medications</span>
             </div>
             <div>
-              <strong>1</strong>
+              <strong>{profile.appointments.length}</strong>
               <span>Upcoming visit</span>
             </div>
             <div>
               <strong>✓</strong>
-              <span>Preventive care on track</span>
+              <span>Account ready</span>
             </div>
           </div>
         </article>
