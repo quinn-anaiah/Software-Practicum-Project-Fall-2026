@@ -1,6 +1,7 @@
+import { Link, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { authenticate } from "../lib/auth";
-import { fetchRoles } from "../lib/api";
+import { fetchRoles, loginUser } from "../lib/api";
 
 function describeSupabaseError(error) {
   if (error instanceof Error) return error.message;
@@ -21,12 +22,14 @@ function describeSupabaseError(error) {
 }
 
 function LoginPage({ onLogin }) {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("dr.rivera@careflow.test");
   const [password, setPassword] = useState("Careflow2026!");
   const [error, setError] = useState("");
   const [roles, setRoles] = useState([]);
   const [rolesStatus, setRolesStatus] = useState("loading");
   const [rolesError, setRolesError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -52,16 +55,29 @@ function LoginPage({ onLogin }) {
     };
   }, []);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    const user = authenticate(email, password);
+    setError("");
 
-    if (!user) {
-      setError("That email or password does not match a demo account.");
+    const demoUser = authenticate(email, password);
+    if (demoUser) {
+      onLogin(demoUser);
       return;
     }
 
-    onLogin(user);
+    setIsSubmitting(true);
+    try {
+      const registeredUser = await loginUser({ email, password });
+      onLogin(registeredUser);
+    } catch (loginError) {
+      setError(
+        loginError instanceof Error
+          ? loginError.message
+          : "Unable to sign in.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -88,8 +104,13 @@ function LoginPage({ onLogin }) {
           <p className="section-label">Welcome back</p>
           <h2>Sign in to Careflow</h2>
           <p className="login-card__intro">
-            Use one of the local demo accounts to enter the dashboard.
+            Sign in with a Careflow account or use a local demo account.
           </p>
+          {searchParams.get("registered") === "1" && (
+            <p className="registration-success" role="status">
+              Your account has been created. Sign in with your new credentials.
+            </p>
+          )}
           <form onSubmit={handleSubmit}>
             <label>
               Email address
@@ -114,8 +135,8 @@ function LoginPage({ onLogin }) {
                 {error}
               </p>
             )}
-            <button className="login-submit" type="submit">
-              Sign in to dashboard <span>→</span>
+            <button className="login-submit" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Signing in…" : "Sign in to dashboard"} <span>→</span>
             </button>
           </form>
           <div className="demo-credentials">
@@ -149,6 +170,9 @@ function LoginPage({ onLogin }) {
               </>
             )}
           </section>
+          <p className="auth-switch">
+            Need a Student account? <Link to="/register">Register now</Link>
+          </p>
         </div>
       </section>
     </main>

@@ -1,5 +1,6 @@
 import express from "express";
 import pg from "pg";
+import authRouter from "./routes/auth.js";
 import rolesRouter from "./routes/roles.js";
 
 const { Pool } = pg;
@@ -14,6 +15,7 @@ const pool = process.env.DATABASE_URL
   : new Pool({ database: process.env.PGDATABASE || "emr_db" });
 
 app.use(express.json());
+app.use("/api/auth", authRouter);
 app.use("/api/roles", rolesRouter);
 
 app.get("/api/patients", async (_request, response) => {

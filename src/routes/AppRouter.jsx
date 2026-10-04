@@ -13,6 +13,7 @@ import InstructorMonitoringPage from "../pages/InstructorMonitoringPage";
 import InstructorOversightPage from "../pages/InstructorOversightPage";
 import InstructorReviewPage from "../pages/InstructorReviewPage";
 import LoginPage from "../pages/LoginPage";
+import RegisterPage from "../pages/RegisterPage";
 import PatientAppointmentsPage from "../pages/PatientAppointmentsPage";
 import PatientDashboardPage from "../pages/PatientDashboardPage";
 import SettingsPage from "../pages/SettingsPage";
@@ -138,6 +139,16 @@ function AppRouter({ onLogin, onLogout, pageProps, user }) {
           )
         }
         path="/login"
+      />
+      <Route
+        element={
+          user ? (
+            <Navigate replace to={getDefaultPath(user)} />
+          ) : (
+            <RegisterPage />
+          )
+        }
+        path="/register"
       />
       <Route
         element={
