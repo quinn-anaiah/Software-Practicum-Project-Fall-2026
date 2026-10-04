@@ -12,10 +12,11 @@ authRouter.post("/login", async (request, response) => {
     password,
   });
 
-  // 🔍 CONSOLE LOG: Check the Supabase Auth response
+  /* 
   console.log("--- SUPABASE AUTH RESPONSE ---");
   console.log("Auth Error:", authError);
   console.log("Auth Data (Session/User):", authData);
+  */
 
   if (authError || !authData.user) {
     return response.status(401).json({ message: "Invalid email or password." });
@@ -25,7 +26,7 @@ authRouter.post("/login", async (request, response) => {
   console.log("User Id:", userId)
 
 
-  // 2. Fetch their full profile using your join query
+  // get user profile from profile tables
   const { data: profileData, error: profileError } = await supabase
     .from("profiles")
     .select(`
@@ -40,10 +41,10 @@ authRouter.post("/login", async (request, response) => {
     .eq("id", userId)
     .single();
 
-  // 🔍 CONSOLE LOG: Check the fetched profile data and any errors
-  console.log("--- SUPABASE PROFILE FETCH ---");
-  console.log("Profile Error:", profileError);
-  console.log("Profile Data:", profileData);
+  
+//   console.log("--- SUPABASE PROFILE FETCH ---");
+//   console.log("Profile Error:", profileError);
+//   console.log("Profile Data:", profileData);
 
   if (profileError || !profileData) {
     return response.status(500).json({ message: "User authenticated, but profile not found." });
@@ -53,7 +54,6 @@ authRouter.post("/login", async (request, response) => {
   const fullName = `${firstName} ${lastName}`.trim();
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
-  // Flatten it neatly for your frontend user state
   const formattedUser = {
     id: profileData.id,
     email: authData.user.email,

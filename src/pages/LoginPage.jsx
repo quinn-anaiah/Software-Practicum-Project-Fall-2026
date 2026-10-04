@@ -70,7 +70,7 @@ async function handleSubmit(event) {
       return;
     }
 
-    // Pass the database user object up to App.jsx via onLogin!
+   
     onLogin(data);
   } catch (err) {
     setError("Network error. Please try again.");
