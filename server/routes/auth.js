@@ -6,17 +6,17 @@ const authRouter = Router();
 authRouter.post("/login", async (request, response) => {
   const { email, password } = request.body;
 
-  // 1. Authenticate with Supabase Auth
+  
   const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
-  /* 
+  
   console.log("--- SUPABASE AUTH RESPONSE ---");
   console.log("Auth Error:", authError);
   console.log("Auth Data (Session/User):", authData);
-  */
+
 
   if (authError || !authData.user) {
     return response.status(401).json({ message: "Invalid email or password." });
@@ -42,9 +42,9 @@ authRouter.post("/login", async (request, response) => {
     .single();
 
   
-//   console.log("--- SUPABASE PROFILE FETCH ---");
-//   console.log("Profile Error:", profileError);
-//   console.log("Profile Data:", profileData);
+  console.log("--- SUPABASE PROFILE FETCH ---");
+  console.log("Profile Error:", profileError);
+  console.log("Profile Data:", profileData);
 
   if (profileError || !profileData) {
     return response.status(500).json({ message: "User authenticated, but profile not found." });
@@ -54,6 +54,7 @@ authRouter.post("/login", async (request, response) => {
   const fullName = `${firstName} ${lastName}`.trim();
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
+  
   const formattedUser = {
     id: profileData.id,
     email: authData.user.email,
