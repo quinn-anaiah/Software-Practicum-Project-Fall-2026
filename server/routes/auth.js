@@ -48,14 +48,20 @@ authRouter.post("/login", async (request, response) => {
   if (profileError || !profileData) {
     return response.status(500).json({ message: "User authenticated, but profile not found." });
   }
+  const firstName = profileData.first_name || "";
+  const lastName = profileData.last_name || "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 
   // Flatten it neatly for your frontend user state
   const formattedUser = {
     id: profileData.id,
     email: authData.user.email,
-    firstName: profileData.first_name,
-    lastName: profileData.last_name,
+    firstName: firstName,
+    lastName: lastName,
     role: profileData.roles?.name,
+    name: fullName,        
+    initials: initials,    
     subrole: profileData.subroles?.name,
   };
 
