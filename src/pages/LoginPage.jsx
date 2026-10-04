@@ -52,17 +52,30 @@ function LoginPage({ onLogin }) {
     };
   }, []);
 
-  function handleSubmit(event) {
-    event.preventDefault();
-    const user = authenticate(email, password);
+async function handleSubmit(event) {
+  event.preventDefault();
+  setError("");
 
-    if (!user) {
-      setError("That email or password does not match a demo account.");
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Failed to sign in.");
       return;
     }
 
-    onLogin(user);
+    // Pass the database user object up to App.jsx via onLogin!
+    onLogin(data);
+  } catch (err) {
+    setError("Network error. Please try again.");
   }
+}
 
   return (
     <main className="login-page">
