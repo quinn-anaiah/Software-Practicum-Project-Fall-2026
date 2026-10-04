@@ -1,6 +1,7 @@
 import express from "express";
 import pg from "pg";
 import rolesRouter from "./routes/roles.js";
+import authRouter from "./routes/auth.js";
 
 const { Pool } = pg;
 const app = express();
@@ -15,6 +16,7 @@ const pool = process.env.DATABASE_URL
 
 app.use(express.json());
 app.use("/api/roles", rolesRouter);
+app.use("/api", authRouter);
 
 app.get("/api/patients", async (_request, response) => {
   try {

@@ -52,17 +52,30 @@ function LoginPage({ onLogin }) {
     };
   }, []);
 
-  function handleSubmit(event) {
-    event.preventDefault();
-    const user = authenticate(email, password);
+async function handleSubmit(event) {
+  event.preventDefault();
+  setError("");
 
-    if (!user) {
-      setError("That email or password does not match a demo account.");
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Failed to sign in.");
       return;
     }
 
-    onLogin(user);
+   
+    onLogin(data);
+  } catch (err) {
+    setError("Network error. Please try again.");
   }
+}
 
   return (
     <main className="login-page">
@@ -121,13 +134,15 @@ function LoginPage({ onLogin }) {
           <div className="demo-credentials">
             <strong>Demo accounts</strong>
             <span>Student: javier.lopez@careflow.test</span>
-            <span>Password: Student123!</span>
+            <span>Password: Student123</span>
             <hr></hr>
             <span>Instructor: dr.rivera@careflow.test</span>
             <span>Password: Careflow2026!</span>
             <hr></hr>
             <span>Patient: morgan.lee@careflow.test</span>
-            <span>Password: Welcome123!</span>
+            <span>Password: Patient123</span>
+            <span>Patient: avery.morgan@careflow.test</span>
+            <span>Password: Admin123</span>
           </div>
           <section className="database-status" aria-live="polite">
             <strong>Supabase role lookup</strong>
