@@ -1580,6 +1580,16 @@ button {
   font-size: 10px;
   font-weight: 500;
 }
+.generated-email-help {
+  color: #8d96a8;
+  font-size: 10px;
+  font-weight: 500;
+}
+.register-card input[readonly] {
+  color: #6f7a90;
+  background: #f4f6fa;
+  cursor: default;
+}
 .auth-switch {
   margin: 19px 0 0;
   color: #7c879d;

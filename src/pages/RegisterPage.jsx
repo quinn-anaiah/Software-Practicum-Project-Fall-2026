@@ -12,6 +12,16 @@ const initialForm = {
   accountType: "Student",
 };
 
+function formatEmailPart(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function createCareflowEmail(firstName, lastName) {
+  const first = formatEmailPart(firstName);
+  const last = formatEmailPart(lastName);
+  return first && last ? `${first}.${last}@careflow.test` : "";
+}
+
 function RegisterPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState(initialForm);
@@ -19,10 +29,19 @@ function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function updateField(event) {
-    setForm((currentForm) => ({
-      ...currentForm,
-      [event.target.name]: event.target.value,
-    }));
+    const { name, value } = event.target;
+    setForm((currentForm) => {
+      const nextForm = { ...currentForm, [name]: value };
+
+      if (name === "firstName" || name === "lastName") {
+        nextForm.email = createCareflowEmail(
+          nextForm.firstName,
+          nextForm.lastName,
+        );
+      }
+
+      return nextForm;
+    });
   }
 
   async function handleSubmit(event) {
@@ -31,6 +50,11 @@ function RegisterPage() {
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
+      return;
+    }
+
+    if (!form.email.trim().toLowerCase().endsWith("@careflow.test")) {
+      setError("Use an email address ending in @careflow.test.");
       return;
     }
 
@@ -147,12 +171,17 @@ function RegisterPage() {
               Email address
               <input
                 autoComplete="email"
+                aria-describedby="generated-email-help"
                 name="email"
-                onChange={updateField}
+                pattern="[^@\\s]+@careflow\\.test"
                 required
+                readOnly
                 type="email"
                 value={form.email}
               />
+              <small className="generated-email-help" id="generated-email-help">
+                Generated from your first and last name.
+              </small>
             </label>
             <div className="register-form__grid">
               <label>

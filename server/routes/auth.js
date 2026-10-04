@@ -69,11 +69,18 @@ authRouter.post("/register", async (request, response) => {
   const utepId = String(request.body.utepId || "").trim() || null;
   const accountType = String(request.body.accountType || "Student");
   const allowedAccountTypes = ["Student", "Patient"];
+  const isCareflowEmail = /^[^\s@]+@careflow\.test$/i.test(email);
 
   if (!firstName || !lastName || !email || password.length < 8) {
     return response.status(400).json({
       message:
         "Enter a first name, last name, valid email, and a password with at least 8 characters.",
+    });
+  }
+
+  if (!isCareflowEmail) {
+    return response.status(400).json({
+      message: "Use a Careflow email address ending in @careflow.test.",
     });
   }
 
@@ -103,6 +110,12 @@ authRouter.post("/register", async (request, response) => {
         email,
         password,
         email_confirm: true,
+        user_metadata: {
+          display_name: `${firstName} ${lastName}`,
+          full_name: `${firstName} ${lastName}`,
+          first_name: firstName,
+          last_name: lastName,
+        },
       });
 
     if (authError || !authData.user) {
@@ -123,7 +136,7 @@ authRouter.post("/register", async (request, response) => {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       console.error("Unable to create profile:", profileError.message);
       return response.status(500).json({
-        message: "Unable to create the user profile. Please try again.",
+        message: `Unable to create the user profile: ${profileError.code || "database error"} — ${profileError.message}`,
       });
     }
 
