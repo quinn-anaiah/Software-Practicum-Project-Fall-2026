@@ -76,9 +76,9 @@ function LoginPage({ onLogin }) {
               Team 4:<br></br>
               Anaiah Quinn<br></br>
               Christian Revilla<br></br>
-              Derek Gamboa<br></br>
+              Jazmin Huerta<br></br>
               Francisco Vazquez<br></br>
-              Scrum Master Sprint1: Jazmin Huerta
+              Scrum Master Sprint2: Derek Gamboa
             </p>
           </div>
         </div>
