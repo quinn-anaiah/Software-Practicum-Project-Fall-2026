@@ -260,7 +260,11 @@ function StudentCaseDetailPage({
                 className="primary-button"
                 type="button"
                 disabled={!encounterInProgress}
-                onClick={() => onNavigate("noteForm")}
+                onClick={() =>
+                  onNavigate("noteForm", {
+                    caseId: patientCase.id,
+                  })
+                }
               >
                 {noteStatus === "Not started"
                   ? "Start Note"
@@ -285,7 +289,11 @@ function StudentCaseDetailPage({
                 className="primary-button"
                 type="button"
                 disabled={!encounterInProgress}
-                onClick={() => onNavigate("orderEntry")}
+                onClick={() =>
+                  onNavigate("orderEntry", {
+                    caseId: patientCase.id,
+                  })
+                }
               >
                 {orders.length === 0
                   ? "Add Orders"

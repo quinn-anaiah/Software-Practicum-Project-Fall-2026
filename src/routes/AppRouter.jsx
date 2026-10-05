@@ -17,6 +17,8 @@ import PasswordSetupPage from "../pages/PasswordSetupPage";
 import SettingsPage from "../pages/SettingsPage";
 import StudentOverviewPage from "../pages/StudentOverviewPage";
 import StudentCaseDetailsPage from "../pages/StudentCaseDetailsPage";
+import StudentNoteFormPage from "../pages/StudentNoteFormPage";
+import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -114,18 +116,14 @@ const routesByRole = {
         path: "/student/case",
         Component: StudentCaseDetailsPage,
       },
-      noteForm: placeholder(
-        "/student/note",
-        "Clinical note",
-        "No note available",
-        "Documentation tools will become available after a case is assigned.",
-      ),
-      orderEntry: placeholder(
-        "/student/orders",
-        "Mock orders",
-        "No orders available",
-        "Mock order entry will become available after a case is assigned.",
-      ),
+      noteForm: {
+        path: "/student/note",
+        Component: StudentNoteFormPage,
+      },
+      orderEntry: {
+        path: "/student/orders",
+        Component: StudentOrderEntryPage,
+      },
       settings: { path: "/student/settings", Component: SettingsPage },
     },
   },
