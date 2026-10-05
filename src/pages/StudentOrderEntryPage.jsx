@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { fetchStudentCases } from "../lib/api";
+import {
+  fetchStudentCases,
+  fetchStudentOrders,
+  saveStudentOrders,
+} from "../lib/api";
 
 function StudentOrderEntryPage({ onNavigate }) {
   const [searchParams] = useSearchParams();
@@ -39,6 +43,22 @@ function StudentOrderEntryPage({ onNavigate }) {
         );
 
         setPatientCase(selectedCase ?? null);
+        if (selectedCase?.assignment_id) {
+          const savedOrders = await fetchStudentOrders(
+            selectedCase.assignment_id,
+          );
+
+          if (!isCurrent) return;
+
+          setOrders(
+            savedOrders.map((order) => ({
+              id: order.id,
+              type: order.order_type,
+              name: order.order_name,
+              status: order.status,
+            })),
+          );
+        }
       } catch (loadError) {
         if (isCurrent) {
           setError(loadError.message);
@@ -62,12 +82,12 @@ function StudentOrderEntryPage({ onNavigate }) {
       return;
     }
 
-    const newOrder = {
-      id: Date.now(),
-      type: orderType,
-      name: orderName.trim(),
-      status: "Draft",
-    };
+  const newOrder = {
+    id: `new-${Date.now()}`,
+    type: orderType,
+    name: orderName.trim(),
+    status: "Draft",
+  };
 
     setOrders((currentOrders) => [
       ...currentOrders,
@@ -85,13 +105,21 @@ function StudentOrderEntryPage({ onNavigate }) {
     );
   }
 
-  function handleSaveOrders() {
-    console.log("Orders saved:", {
-      caseId: patientCase.id,
-      orders,
-    });
+  async function handleSaveOrders() {
+    try {
+      setError("");
 
-    alert("Orders saved locally for now.");
+      await saveStudentOrders(
+        patientCase.assignment_id,
+        orders,
+      );
+
+      onNavigate("caseDetail", {
+        caseId: patientCase.id,
+      });
+    } catch (saveError) {
+      setError(saveError.message);
+    }
   }
 
   function goBackToCase() {

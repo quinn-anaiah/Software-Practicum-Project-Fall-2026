@@ -244,4 +244,293 @@ studentRouter.get("/notes/:assignmentId", async (request, response) => {
   return response.json(data);
 });
 
+studentRouter.patch(
+  "/cases/:assignmentId/status",
+  async (request, response) => {
+    const authorization = request.headers.authorization;
+
+    if (!authorization?.startsWith("Bearer ")) {
+      return response.status(401).json({
+        message: "Authentication required.",
+      });
+    }
+
+    const accessToken = authorization.slice(7);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return response.status(401).json({
+        message: "Invalid or expired session.",
+      });
+    }
+
+    const { assignmentId } = request.params;
+    const { encounterStatus } = request.body;
+
+    const validStatuses = [
+      "Scheduled",
+      "Checked in",
+      "Roomed",
+      "In progress",
+      "Checked out",
+    ];
+
+    if (!validStatuses.includes(encounterStatus)) {
+      return response.status(400).json({
+        message: "Invalid encounter status.",
+      });
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const { data, error } = await supabaseAdmin
+      .schema("learning")
+      .from("student_case_assignments")
+      .update({
+        encounter_status: encounterStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", assignmentId)
+      .eq("student_id", user.id)
+      .select("id, case_id, encounter_status, updated_at")
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Unable to update encounter status:",
+        error.message,
+      );
+
+      return response.status(500).json({
+        message: "Unable to update encounter status.",
+      });
+    }
+
+    if (!data) {
+      return response.status(404).json({
+        message: "Case assignment not found.",
+      });
+    }
+
+    return response.json(data);
+  },
+);
+
+studentRouter.post("/orders", async (request, response) => {
+  const authorization = request.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return response.status(401).json({
+      message: "Authentication required.",
+    });
+  }
+
+  const accessToken = authorization.slice(7);
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(accessToken);
+
+  if (authError || !user) {
+    return response.status(401).json({
+      message: "Invalid or expired session.",
+    });
+  }
+
+  const { assignmentId, orders } = request.body;
+
+  if (!assignmentId || !Array.isArray(orders)) {
+    return response.status(400).json({
+      message: "Assignment and orders are required.",
+    });
+  }
+
+  const supabaseAdmin = getSupabaseAdmin();
+
+  // Make sure this assignment belongs to the logged-in student.
+  const { data: assignment, error: assignmentError } =
+    await supabaseAdmin
+      .schema("learning")
+      .from("student_case_assignments")
+      .select("id")
+      .eq("id", assignmentId)
+      .eq("student_id", user.id)
+      .maybeSingle();
+
+  if (assignmentError || !assignment) {
+    return response.status(403).json({
+      message: "You do not have access to this case.",
+    });
+  }
+
+  const existingOrders = orders.filter(
+    (order) => typeof order.id === "number" && order.id < 1000000000000,
+  );
+
+  const newOrders = orders.filter(
+    (order) => typeof order.id !== "number" || order.id >= 1000000000000,
+  );
+
+  for (const order of existingOrders) {
+  const { error: updateError } = await supabaseAdmin
+    .schema("learning")
+    .from("orders")
+    .update({
+      order_type: order.type,
+      order_name: order.name,
+      status: "Draft",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id)
+    .eq("assignment_id", assignmentId);
+
+  if (updateError) {
+    console.error(
+      "Unable to update order:",
+      updateError.message,
+    );
+
+    return response.status(500).json({
+      message: "Unable to save orders.",
+    });
+  }
+}
+
+  const existingOrderIds = existingOrders.map(
+    (order) => order.id,
+  );
+
+  let deleteQuery = supabaseAdmin
+    .schema("learning")
+    .from("orders")
+    .delete()
+    .eq("assignment_id", assignmentId)
+    .eq("status", "Draft");
+
+  if (existingOrderIds.length > 0) {
+    deleteQuery = deleteQuery.not(
+      "id",
+      "in",
+      `(${existingOrderIds.join(",")})`,
+    );
+  }
+
+  const { error: deleteError } = await deleteQuery;
+
+  if (deleteError) {
+    console.error(
+      "Unable to remove deleted orders:",
+      deleteError.message,
+    );
+
+    return response.status(500).json({
+      message: "Unable to save orders.",
+    });
+  }
+
+  let newSavedOrders = [];
+
+  if (newOrders.length > 0) {
+    const newOrdersToSave = newOrders.map((order) => ({
+      assignment_id: assignmentId,
+      order_type: order.type,
+      order_name: order.name,
+      status: "Draft",
+    }));
+
+    const { data, error } = await supabaseAdmin
+      .schema("learning")
+      .from("orders")
+      .insert(newOrdersToSave)
+      .select();
+
+    if (error) {
+      console.error(
+        "Unable to save new orders:",
+        error.message,
+      );
+
+      return response.status(500).json({
+        message: "Unable to save orders.",
+      });
+    }
+
+    newSavedOrders = data;
+  }
+
+  return response.status(200).json({
+    message: "Orders saved successfully.",
+  });
+});
+
+studentRouter.get(
+  "/orders/:assignmentId",
+  async (request, response) => {
+    const authorization = request.headers.authorization;
+
+    if (!authorization?.startsWith("Bearer ")) {
+      return response.status(401).json({
+        message: "Authentication required.",
+      });
+    }
+
+    const accessToken = authorization.slice(7);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return response.status(401).json({
+        message: "Invalid or expired session.",
+      });
+    }
+
+    const { assignmentId } = request.params;
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const { data: assignment, error: assignmentError } =
+      await supabaseAdmin
+        .schema("learning")
+        .from("student_case_assignments")
+        .select("id")
+        .eq("id", assignmentId)
+        .eq("student_id", user.id)
+        .maybeSingle();
+
+    if (assignmentError || !assignment) {
+      return response.status(403).json({
+        message: "You do not have access to this case.",
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .schema("learning")
+      .from("orders")
+      .select("*")
+      .eq("assignment_id", assignmentId)
+      .order("id");
+
+    if (error) {
+      console.error(
+        "Unable to load orders:",
+        error.message,
+      );
+
+      return response.status(500).json({
+        message: "Unable to load orders.",
+      });
+    }
+
+    return response.json(data);
+  },
+);
+
 export default studentRouter;

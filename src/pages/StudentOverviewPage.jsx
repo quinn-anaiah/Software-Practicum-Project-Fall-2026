@@ -109,7 +109,7 @@ function StudentOverviewPage({
 
                     <td>
                       <span className="status-badge">
-                        {patientCase.starting_encounter_status}
+                        {patientCase.encounter_status}
                       </span>
                     </td>
 

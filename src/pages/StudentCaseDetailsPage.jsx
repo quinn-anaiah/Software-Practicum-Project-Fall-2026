@@ -4,6 +4,8 @@ import Icon from "../components/Icon";
 import {
   fetchStudentCases,
   fetchStudentNote,
+  fetchStudentOrders,
+  updateStudentCaseStatus,
 } from "../lib/api";
 
 const statusOrder = [
@@ -32,6 +34,7 @@ function StudentCaseDetailPage({
   const [searchParams] = useSearchParams();
   const [patientCase, setPatientCase] = useState(null);
   const [savedNote, setSavedNote] = useState(null);
+  const [savedOrders, setSavedOrders] = useState([]);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState("");
 
@@ -71,6 +74,16 @@ function StudentCaseDetailPage({
 
           setSavedNote(note);
         }
+
+      if (selectedCase?.assignment_id) {
+        const orders = await fetchStudentOrders(
+          selectedCase.assignment_id,
+        );
+
+        if (!isCurrent) return;
+
+        setSavedOrders(orders);
+      }
       } catch (error) {
         if (isCurrent) {
           setCasesError(error.message);
@@ -127,20 +140,25 @@ function StudentCaseDetailPage({
   const allergies = patientCase.allergies ?? [];
 
   const encounterStatus =
-    patientCase.encounterStatus ??
+    patientCase.encounter_status ??
     patientCase.starting_encounter_status;
 
   const noteStatus = savedNote
     ? "In progress"
     : "Not started";
-
+  
+  const orderStatus =
+  savedOrders.length > 0
+    ? "In progress"
+    : "Not started";
+    
   const encounterInProgress = encounterStatus === "In progress";
   const isSubmitted = submission?.status === "Pending Review";
   const readyToSubmit =
     Boolean(savedNote) && orders.length > 0;
   const statusButtonLabel = statusButtonLabels[encounterStatus];
 
-  function advanceStatus() {
+  async function advanceStatus() {
     const currentIndex = statusOrder.indexOf(encounterStatus);
 
     if (
@@ -152,14 +170,21 @@ function StudentCaseDetailPage({
 
     const nextStatus = statusOrder[currentIndex + 1];
 
-    if (updateCaseStatus) {
-      updateCaseStatus(patientCase.id, nextStatus);
-    }
+    try {
+      setCasesError("");
 
-    setPatientCase((currentCase) => ({
-      ...currentCase,
-      encounterStatus: nextStatus,
-    }));
+      await updateStudentCaseStatus(
+        patientCase.assignment_id,
+        nextStatus,
+      );
+
+      setPatientCase((currentCase) => ({
+        ...currentCase,
+        encounter_status: nextStatus,
+      }));
+    } catch (error) {
+      setCasesError(error.message);
+    }
   }
 
   return (
@@ -256,6 +281,7 @@ function StudentCaseDetailPage({
                   className="primary-button"
                   type="button"
                   onClick={advanceStatus}
+                  disabled={encounterStatus === "In progress"}
                 >
                   {statusButtonLabel}
                 </button>
@@ -291,10 +317,10 @@ function StudentCaseDetailPage({
 
             <dd className="status-action">
               <span>
-                {orders.length === 0
+                {savedOrders.length === 0
                   ? "No orders"
-                  : `${orders.length} draft ${
-                      orders.length === 1 ? "order" : "orders"
+                  : `${savedOrders.length} draft ${
+                      savedOrders.length === 1 ? "order" : "orders"
                     }`}
               </span>
 
@@ -308,9 +334,9 @@ function StudentCaseDetailPage({
                   })
                 }
               >
-                {orders.length === 0
-                  ? "Add Orders"
-                  : "Manage Orders"}
+                  {orderStatus === "Not started"
+                  ? "Start Orders"
+                  : "Continue Orders"}
               </button>
             </dd>
           </div>
