@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
 import Icon from "../components/Icon";
-import { fetchAdminUsers } from "../lib/api";
+import {
+  fetchAdminAccessOptions,
+  fetchAdminAuditLog,
+  fetchAdminUsers,
+  inviteAdminUser,
+  requestAdminPasswordReset,
+  updateAdminUserAccess,
+  updateAdminUserStatus,
+} from "../lib/api";
 
 function formatDate(value) {
   if (!value) return "Not available";
@@ -18,6 +26,21 @@ function AdminUserDirectoryPage() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [accessOptions, setAccessOptions] = useState({ roles: [], subroles: [] });
+  const [auditEntries, setAuditEntries] = useState([]);
+  const [managementError, setManagementError] = useState("");
+  const [managementNotice, setManagementNotice] = useState("");
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    utepId: "",
+    roleId: "",
+    subroleId: "",
+  });
+  const [accessDraft, setAccessDraft] = useState({ userId: "", roleId: "", subroleId: "" });
 
   useEffect(() => {
     let isCurrent = true;
@@ -49,6 +72,34 @@ function AdminUserDirectoryPage() {
     };
   }, [activeQuery]);
 
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadManagementData() {
+      try {
+        const [options, audit] = await Promise.all([
+          fetchAdminAccessOptions(),
+          fetchAdminAuditLog(),
+        ]);
+        if (isCurrent) {
+          setAccessOptions(options);
+          setAuditEntries(audit);
+        }
+      } catch (loadError) {
+        if (isCurrent) {
+          setManagementError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load account-management settings.",
+          );
+        }
+      }
+    }
+    loadManagementData();
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
   const selectedUser =
     directory.users.find((user) => user.id === selectedUserId) ||
     directory.users[0];
@@ -57,9 +108,83 @@ function AdminUserDirectoryPage() {
     1,
   );
 
+  const selectedRole = accessOptions.roles.find((role) => role.name === selectedUser?.role);
+  const selectedSubrole = accessOptions.subroles.find(
+    (subrole) => subrole.name === selectedUser?.subrole,
+  );
+  const selectedAccessDraft =
+    accessDraft.userId === selectedUser?.id
+      ? accessDraft
+      : {
+          userId: selectedUser?.id || "",
+          roleId: selectedRole ? String(selectedRole.id) : "",
+          subroleId: selectedSubrole ? String(selectedSubrole.id) : "",
+        };
+
   function handleSearch(event) {
     event.preventDefault();
     setActiveQuery(queryInput.trim());
+  }
+
+  async function refreshManagement() {
+    const [users, audit] = await Promise.all([
+      fetchAdminUsers(activeQuery),
+      fetchAdminAuditLog(),
+    ]);
+    setDirectory(users);
+    setAuditEntries(audit);
+  }
+
+  async function runManagementAction(action) {
+    setIsSaving(true);
+    setManagementError("");
+    setManagementNotice("");
+    try {
+      const result = await action();
+      setManagementNotice(result.message);
+      await refreshManagement();
+    } catch (actionError) {
+      setManagementError(
+        actionError instanceof Error ? actionError.message : "Unable to complete this action.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function updateInviteField(field, value) {
+    setInviteForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "firstName" || field === "lastName") {
+        const first = (field === "firstName" ? value : current.firstName)
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ".");
+        const last = (field === "lastName" ? value : current.lastName)
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ".");
+        next.email = first && last ? `${first}.${last}@careflow.test` : "";
+      }
+      return next;
+    });
+  }
+
+  function handleInvite(event) {
+    event.preventDefault();
+    runManagementAction(async () => {
+      const result = await inviteAdminUser(inviteForm);
+      setInviteForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        utepId: "",
+        roleId: "",
+        subroleId: "",
+      });
+      setIsInviteOpen(false);
+      return result;
+    });
   }
 
   return (
@@ -73,7 +198,77 @@ function AdminUserDirectoryPage() {
             Careflow. Passwords and secret credentials are never displayed.
           </p>
         </div>
+        <button className="primary-button directory-create-button" onClick={() => setIsInviteOpen(true)} type="button">
+          <Icon name="plus" size={16} /> Invite account
+        </button>
       </section>
+
+      {(managementError || managementNotice) && (
+        <section
+          className={`panel directory-action-message ${managementError ? "directory-error" : "directory-success"}`}
+          role="status"
+        >
+          {managementError || managementNotice}
+        </section>
+      )}
+
+      {isInviteOpen && (
+        <section className="panel invite-account-panel">
+          <div className="panel__header">
+            <div>
+              <p className="section-label">New learner or account</p>
+              <h2>Send an account invitation</h2>
+            </div>
+            <button
+              aria-label="Close invitation form"
+              className="row-action"
+              onClick={() => setIsInviteOpen(false)}
+              type="button"
+            >
+              <Icon name="close" size={17} />
+            </button>
+          </div>
+          <p className="invite-account-panel__intro">
+            Careflow creates the identity and sends a secure account-setup email. No password is created or shown here.
+          </p>
+          <form className="admin-form" onSubmit={handleInvite}>
+            <label>
+              First name
+              <input onChange={(event) => updateInviteField("firstName", event.target.value)} required value={inviteForm.firstName} />
+            </label>
+            <label>
+              Last name
+              <input onChange={(event) => updateInviteField("lastName", event.target.value)} required value={inviteForm.lastName} />
+            </label>
+            <label>
+              Careflow email
+              <input readOnly value={inviteForm.email} />
+            </label>
+            <label>
+              UTEP ID <span>Optional</span>
+              <input onChange={(event) => updateInviteField("utepId", event.target.value)} value={inviteForm.utepId} />
+            </label>
+            <label>
+              Account role
+              <select onChange={(event) => updateInviteField("roleId", event.target.value)} required value={inviteForm.roleId}>
+                <option value="">Choose a role</option>
+                {accessOptions.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+              </select>
+            </label>
+            <label>
+              Discipline <span>Optional</span>
+              <select onChange={(event) => updateInviteField("subroleId", event.target.value)} value={inviteForm.subroleId}>
+                <option value="">No discipline assigned</option>
+                {accessOptions.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}
+              </select>
+            </label>
+            <div className="admin-form__actions">
+              <button className="secondary-button" onClick={() => setIsInviteOpen(false)} type="button">Cancel</button>
+              <button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Sending…" : "Send invitation"}</button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <form className="directory-search" onSubmit={handleSearch}>
         <Icon name="search" size={18} />
@@ -233,9 +428,62 @@ function AdminUserDirectoryPage() {
                   Passwords, password hashes, and authentication tokens are
                   never available in this directory.
                 </p>
+                {selectedUser.role === "Admin" ? (
+                  <p className="account-detail__note">
+                    Admin access is protected from changes in this workspace. Use a future Super Admin process for Admin role assignments.
+                  </p>
+                ) : (
+                  <form
+                    className="admin-form admin-form--compact"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      runManagementAction(() => updateAdminUserAccess(selectedUser.id, selectedAccessDraft));
+                    }}
+                  >
+                    <p className="section-label">Manage access</p>
+                    <label>
+                      Account role
+                      <select onChange={(event) => setAccessDraft({ ...selectedAccessDraft, roleId: event.target.value })} required value={selectedAccessDraft.roleId}>
+                        <option value="">Choose a role</option>
+                        {accessOptions.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      Discipline
+                      <select onChange={(event) => setAccessDraft({ ...selectedAccessDraft, subroleId: event.target.value })} value={selectedAccessDraft.subroleId}>
+                        <option value="">No discipline assigned</option>
+                        {accessOptions.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}
+                      </select>
+                    </label>
+                    <button className="secondary-button" disabled={isSaving || !selectedAccessDraft.roleId} type="submit">Save access</button>
+                    <div className="admin-form__inline-actions">
+                      <button className="text-button" disabled={isSaving} onClick={() => runManagementAction(() => requestAdminPasswordReset(selectedUser.id))} type="button">Send password reset</button>
+                      <button className="text-button text-button--danger" disabled={isSaving} onClick={() => runManagementAction(() => updateAdminUserStatus(selectedUser.id, !selectedUser.isActive))} type="button">
+                        {selectedUser.isActive ? "Deactivate account" : "Reactivate account"}
+                      </button>
+                    </div>
+                  </form>
+                )}
               </>
             ) : (
               <p className="directory-loading">Select an account to view its profile.</p>
+            )}
+          </article>
+
+          <article className="panel audit-log">
+            <p className="section-label">Protected activity</p>
+            <h2>Recent account audit</h2>
+            {auditEntries.length ? (
+              <ul>
+                {auditEntries.slice(0, 5).map((entry) => (
+                  <li key={entry.id}>
+                    <strong>{entry.action.replaceAll(".", " ")}</strong>
+                    <span>{formatDate(entry.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="directory-loading">No account-management activity recorded yet.</p>
             )}
           </article>
         </aside>

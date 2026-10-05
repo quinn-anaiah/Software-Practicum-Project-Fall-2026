@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { getSupabaseAdmin, supabase } from "../services/supabase.js";
+import {
+  createSupabaseUserSessionClient,
+  getSupabaseAdmin,
+  supabase,
+} from "../services/supabase.js";
 
 const authRouter = Router();
 
@@ -206,6 +210,35 @@ authRouter.post("/register", async (request, response) => {
     return response.status(500).json({
       message: "Registration is not configured yet. Contact the application administrator.",
     });
+  }
+});
+
+authRouter.post("/complete-password-setup", async (request, response) => {
+  const accessToken = String(request.body.accessToken || "");
+  const refreshToken = String(request.body.refreshToken || "");
+  const password = String(request.body.password || "");
+
+  if (!accessToken || !refreshToken || password.length < 8) {
+    return response.status(400).json({
+      message: "Use the secure link from your email and choose a password with at least 8 characters.",
+    });
+  }
+
+  try {
+    const sessionClient = createSupabaseUserSessionClient();
+    const { error: sessionError } = await sessionClient.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    if (sessionError) return response.status(400).json({ message: "This account setup link has expired." });
+
+    const { error: updateError } = await sessionClient.auth.updateUser({ password });
+    if (updateError) return response.status(400).json({ message: updateError.message });
+
+    return response.json({ message: "Your password has been set. You can now sign in." });
+  } catch (error) {
+    console.error("Unable to complete password setup:", error);
+    return response.status(500).json({ message: "Unable to set your password." });
   }
 });
 

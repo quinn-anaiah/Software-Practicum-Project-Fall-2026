@@ -9,8 +9,11 @@ import {
 import DatabasePlaceholderPage from "../pages/DatabasePlaceholderPage";
 import AdminUserDirectoryPage from "../pages/AdminUserDirectoryPage";
 import DashboardPage from "../pages/DashboardPage";
+import InstructorClassesPage from "../pages/InstructorClassesPage";
+import InstructorOverviewPage from "../pages/InstructorOverviewPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
+import PasswordSetupPage from "../pages/PasswordSetupPage";
 import SettingsPage from "../pages/SettingsPage";
 
 function placeholder(path, eyebrow, title, description) {
@@ -29,18 +32,13 @@ const routesByRole = {
   Instructor: {
     navigation: instructorNavigation,
     pages: {
-      overview: { path: "/instructor", Component: DashboardPage },
-      cohorts: placeholder(
-        "/instructor/cohorts",
-        "Cohort & roster",
-        "No classroom rosters yet",
-        "Create and manage classroom rosters here after the cohort data API is connected.",
-      ),
+      overview: { path: "/instructor", Component: InstructorOverviewPage },
+      cohorts: { path: "/instructor/cohorts", Component: InstructorClassesPage },
       cases: placeholder(
         "/instructor/cases",
-        "Cases & assignments",
+        "Scenario library",
         "No training scenarios yet",
-        "Training scenarios and learner assignments will load from the database here.",
+        "Reusable scenarios will appear here. Assign them to a class from the Classes workspace.",
       ),
       expectations: placeholder(
         "/instructor/expectations",
@@ -219,6 +217,7 @@ function AppRouter({ onLogin, onLogout, user }) {
         }
         path="/register"
       />
+      <Route element={<PasswordSetupPage />} path="/set-password" />
       <Route element={protectedRoute} path="/instructor/*" />
       <Route element={protectedRoute} path="/admin/*" />
       <Route element={protectedRoute} path="/patient/*" />

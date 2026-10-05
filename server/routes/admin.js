@@ -38,7 +38,48 @@ async function requireAdmin(request, response) {
     return null;
   }
 
-  return supabaseAdmin;
+  return { supabaseAdmin, actor: authData.user };
+}
+
+function isAdminRole(roleName) {
+  return String(roleName || "").toLowerCase() === "admin";
+}
+
+function getDisplayName(profile, fallbackUser) {
+  const firstName = profile?.first_name || fallbackUser?.user_metadata?.first_name || "";
+  const lastName = profile?.last_name || fallbackUser?.user_metadata?.last_name || "";
+  return `${firstName} ${lastName}`.trim() || "Unnamed user";
+}
+
+async function writeAuditLog(supabaseAdmin, entry) {
+  const { error } = await supabaseAdmin.from("admin_audit_log").insert(entry);
+  if (error) {
+    console.error("Unable to write admin audit log:", error.message);
+    throw new Error(
+      "Account management is not ready yet. Run the admin audit-log SQL setup first.",
+    );
+  }
+}
+
+async function ensureAuditLogReady(supabaseAdmin, response) {
+  const { error } = await supabaseAdmin.from("admin_audit_log").select("id").limit(1);
+  if (!error) return true;
+  response.status(503).json({
+    message: "Run the admin audit-log SQL setup before managing accounts.",
+  });
+  return false;
+}
+
+async function getRoleAndSubrole(supabaseAdmin, roleId, subroleId) {
+  const [{ data: role, error: roleError }, subroleResult] = await Promise.all([
+    supabaseAdmin.from("roles").select("id, name").eq("id", roleId).single(),
+    subroleId
+      ? supabaseAdmin.from("subroles").select("id, name").eq("id", subroleId).single()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  if (roleError || !role || subroleResult.error) return null;
+  return { role, subrole: subroleResult.data };
 }
 
 function buildStats(users) {
@@ -63,8 +104,9 @@ function buildStats(users) {
 
 adminRouter.get("/users", async (request, response) => {
   try {
-    const supabaseAdmin = await requireAdmin(request, response);
-    if (!supabaseAdmin) return;
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin } = adminContext;
 
     const [{ data: profiles, error: profilesError }, authResult] =
       await Promise.all([
@@ -88,12 +130,9 @@ adminRouter.get("/users", async (request, response) => {
     const profilesById = new Map((profiles || []).map((profile) => [profile.id, profile]));
     const directory = (authResult.data.users || []).map((authUser) => {
       const profile = profilesById.get(authUser.id);
-      const firstName = profile?.first_name || authUser.user_metadata?.first_name || "";
-      const lastName = profile?.last_name || authUser.user_metadata?.last_name || "";
-
       return {
         id: authUser.id,
-        name: `${firstName} ${lastName}`.trim() || "Unnamed user",
+        name: getDisplayName(profile, authUser),
         email: authUser.email || "",
         role: getRelationName(profile?.roles) || null,
         subrole: getRelationName(profile?.subroles) || null,
@@ -102,6 +141,7 @@ adminRouter.get("/users", async (request, response) => {
         createdAt: profile?.created_at || authUser.created_at || null,
         emailConfirmed: Boolean(authUser.email_confirmed_at),
         hasProfile: Boolean(profile),
+        isActive: !authUser.banned_until || new Date(authUser.banned_until) <= new Date(),
       };
     });
     const search = String(request.query.query || "").trim().toLowerCase();
@@ -123,6 +163,253 @@ adminRouter.get("/users", async (request, response) => {
   } catch (error) {
     console.error("Unable to load admin directory:", error);
     return response.status(500).json({ message: "Unable to load the user directory." });
+  }
+});
+
+adminRouter.get("/access-options", async (request, response) => {
+  try {
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin } = adminContext;
+    const [{ data: roles, error: rolesError }, { data: subroles, error: subrolesError }] =
+      await Promise.all([
+        supabaseAdmin.from("roles").select("id, name").order("name"),
+        supabaseAdmin.from("subroles").select("id, name").order("name"),
+      ]);
+
+    if (rolesError || subrolesError) {
+      return response.status(500).json({ message: "Unable to load access options." });
+    }
+
+    return response.json({
+      roles: (roles || []).filter((role) => !isAdminRole(role.name)),
+      subroles: subroles || [],
+    });
+  } catch (error) {
+    console.error("Unable to load access options:", error);
+    return response.status(500).json({ message: "Unable to load access options." });
+  }
+});
+
+adminRouter.post("/users/invite", async (request, response) => {
+  const firstName = String(request.body.firstName || "").trim();
+  const lastName = String(request.body.lastName || "").trim();
+  const email = String(request.body.email || "").trim().toLowerCase();
+  const utepId = String(request.body.utepId || "").trim() || null;
+  const roleId = Number(request.body.roleId);
+  const subroleId = request.body.subroleId ? Number(request.body.subroleId) : null;
+
+  if (!firstName || !lastName || !/^[^\s@]+@careflow\.test$/i.test(email) || !roleId) {
+    return response.status(400).json({
+      message: "Enter a name, a valid @careflow.test email, and an account role.",
+    });
+  }
+
+  try {
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin, actor } = adminContext;
+    const access = await getRoleAndSubrole(supabaseAdmin, roleId, subroleId);
+    if (!access || isAdminRole(access.role.name)) {
+      return response.status(400).json({
+        message: "Administrators cannot create or assign Admin accounts here.",
+      });
+    }
+
+    // Validate prerequisites before creating an Auth identity, so a missing audit table
+    // cannot leave behind a partially provisioned account.
+    if (!(await ensureAuditLogReady(supabaseAdmin, response))) return;
+
+    const { data: invitation, error: inviteError } =
+      await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: {
+          display_name: `${firstName} ${lastName}`,
+          full_name: `${firstName} ${lastName}`,
+          first_name: firstName,
+          last_name: lastName,
+        },
+        redirectTo: process.env.APP_URL || "http://localhost:5173/set-password",
+      });
+
+    if (inviteError || !invitation.user) {
+      return response.status(400).json({
+        message: inviteError?.message || "Unable to send this invitation.",
+      });
+    }
+
+    const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      id: invitation.user.id,
+      first_name: firstName,
+      last_name: lastName,
+      utep_id: utepId,
+      role_id: access.role.id,
+      sub_role_id: access.subrole?.id || null,
+    });
+    if (profileError) {
+      await supabaseAdmin.auth.admin.deleteUser(invitation.user.id);
+      return response.status(500).json({
+        message: `Unable to create the Careflow profile: ${profileError.message}`,
+      });
+    }
+
+    try {
+      await writeAuditLog(supabaseAdmin, {
+        actor_id: actor.id,
+        target_user_id: invitation.user.id,
+        action: "account.invited",
+        details: { email, role: access.role.name, subrole: access.subrole?.name || null },
+      });
+    } catch (auditError) {
+      console.error(auditError);
+    }
+
+    return response.status(201).json({
+      message: `Invitation sent to ${email}.`,
+    });
+  } catch (error) {
+    console.error("Unable to invite account:", error);
+    return response.status(500).json({ message: "Unable to invite this account." });
+  }
+});
+
+adminRouter.patch("/users/:userId/access", async (request, response) => {
+  const roleId = Number(request.body.roleId);
+  const subroleId = request.body.subroleId ? Number(request.body.subroleId) : null;
+
+  if (!roleId) return response.status(400).json({ message: "Choose an account role." });
+
+  try {
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin, actor } = adminContext;
+    if (!(await ensureAuditLogReady(supabaseAdmin, response))) return;
+    const { data: targetProfile, error: targetError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, role_id, sub_role_id, roles(name), subroles(name)")
+      .eq("id", request.params.userId)
+      .single();
+    const access = await getRoleAndSubrole(supabaseAdmin, roleId, subroleId);
+
+    if (targetError || !targetProfile || !access) {
+      return response.status(404).json({ message: "The requested account was not found." });
+    }
+    if (isAdminRole(getRelationName(targetProfile.roles)) || isAdminRole(access.role.name)) {
+      return response.status(403).json({
+        message: "Admin role assignments are restricted to a separate Super Admin process.",
+      });
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("profiles")
+      .update({ role_id: access.role.id, sub_role_id: access.subrole?.id || null })
+      .eq("id", targetProfile.id);
+    if (updateError) return response.status(500).json({ message: "Unable to update access." });
+
+    await writeAuditLog(supabaseAdmin, {
+      actor_id: actor.id,
+      target_user_id: targetProfile.id,
+      action: "account.access_updated",
+      details: {
+        previousRole: getRelationName(targetProfile.roles),
+        previousSubrole: getRelationName(targetProfile.subroles) || null,
+        role: access.role.name,
+        subrole: access.subrole?.name || null,
+      },
+    });
+    return response.json({ message: "Account access updated." });
+  } catch (error) {
+    console.error("Unable to update account access:", error);
+    return response.status(500).json({ message: error.message || "Unable to update access." });
+  }
+});
+
+adminRouter.post("/users/:userId/password-reset", async (request, response) => {
+  try {
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin, actor } = adminContext;
+    if (!(await ensureAuditLogReady(supabaseAdmin, response))) return;
+    const { data: target, error: targetError } = await supabaseAdmin.auth.admin.getUserById(
+      request.params.userId,
+    );
+    if (targetError || !target.user) return response.status(404).json({ message: "Account not found." });
+    const { data: targetProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("roles(name)")
+      .eq("id", target.user.id)
+      .single();
+    if (isAdminRole(getRelationName(targetProfile?.roles))) {
+      return response.status(403).json({ message: "Admin accounts cannot be changed here." });
+    }
+
+    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(target.user.email, {
+      redirectTo: process.env.APP_URL || "http://localhost:5173/set-password",
+    });
+    if (resetError) return response.status(400).json({ message: resetError.message });
+
+    await writeAuditLog(supabaseAdmin, {
+      actor_id: actor.id,
+      target_user_id: target.user.id,
+      action: "account.password_reset_requested",
+      details: { email: target.user.email },
+    });
+    return response.json({ message: `A password-reset email was sent to ${target.user.email}.` });
+  } catch (error) {
+    console.error("Unable to request password reset:", error);
+    return response.status(500).json({ message: error.message || "Unable to request a password reset." });
+  }
+});
+
+adminRouter.patch("/users/:userId/status", async (request, response) => {
+  const isActive = Boolean(request.body.isActive);
+  try {
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin, actor } = adminContext;
+    if (!(await ensureAuditLogReady(supabaseAdmin, response))) return;
+    if (actor.id === request.params.userId) {
+      return response.status(400).json({ message: "You cannot deactivate your own account." });
+    }
+    const { data: targetProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("roles(name)")
+      .eq("id", request.params.userId)
+      .single();
+    if (isAdminRole(getRelationName(targetProfile?.roles))) {
+      return response.status(403).json({ message: "Admin accounts cannot be changed here." });
+    }
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(request.params.userId, {
+      ban_duration: isActive ? "none" : "876000h",
+    });
+    if (error) return response.status(400).json({ message: error.message });
+    await writeAuditLog(supabaseAdmin, {
+      actor_id: actor.id,
+      target_user_id: request.params.userId,
+      action: isActive ? "account.activated" : "account.deactivated",
+      details: { isActive },
+    });
+    return response.json({ message: isActive ? "Account reactivated." : "Account deactivated." });
+  } catch (error) {
+    console.error("Unable to change account status:", error);
+    return response.status(500).json({ message: error.message || "Unable to change account status." });
+  }
+});
+
+adminRouter.get("/audit-log", async (request, response) => {
+  try {
+    const adminContext = await requireAdmin(request, response);
+    if (!adminContext) return;
+    const { supabaseAdmin } = adminContext;
+    const { data, error } = await supabaseAdmin
+      .from("admin_audit_log")
+      .select("id, actor_id, target_user_id, action, details, created_at")
+      .order("created_at", { ascending: false })
+      .limit(12);
+    if (error) return response.status(503).json({ message: "Run the admin audit-log SQL setup first." });
+    return response.json(data || []);
+  } catch (error) {
+    console.error("Unable to load audit log:", error);
+    return response.status(500).json({ message: "Unable to load the audit log." });
   }
 });
 
