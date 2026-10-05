@@ -166,6 +166,173 @@ adminRouter.get("/users", async (request, response) => {
   }
 });
 
+adminRouter.get("/patients", async (request, response) => {
+  try {
+    // Make sure the person requesting this page is actually an Admin.
+    const adminContext = await requireAdmin(request, response);
+
+    if (!adminContext) {
+      return;
+    }
+
+    const { supabaseAdmin } = adminContext;
+
+    // Get profile information from Supabase.
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select(
+        "id, first_name, last_name, careflow_id, created_at, roles(name)",
+      )
+      .order("created_at", { ascending: false });
+
+    if (profilesError) {
+      console.error(
+        "Unable to load patient profiles:",
+        profilesError.message,
+      );
+
+      return response.status(500).json({
+        message: "Unable to load patients.",
+      });
+    }
+
+    // Keep only profiles whose role is Patient.
+    const patientProfiles = (profiles || []).filter((profile) => {
+      return getRelationName(profile.roles) === "Patient";
+    });
+
+    // Get the Supabase Auth users so we can also display email addresses.
+    const authResult = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+
+    // Check whether Supabase returned an error.
+    if (authResult.error) {
+      console.error(
+        "Unable to load patient accounts:",
+        authResult.error.message,
+      );
+
+      return response.status(500).json({
+        message: "Unable to load patient accounts.",
+      });
+    }
+
+    // Get the list of Auth users.
+    // If Supabase does not return a users array, use an empty array.
+    const authUsers = authResult.data?.users || [];
+
+    // Create a Map so we can quickly match a profile to its Auth account.
+    const authUsersById = new Map();
+
+    for (const authUser of authUsers) {
+      authUsersById.set(authUser.id, authUser);
+    }
+
+    // Build a simpler patient object for the React frontend.
+    const patients = patientProfiles.map((profile) => {
+      const authUser = authUsersById.get(profile.id);
+
+      const firstName = profile.first_name || "";
+      const lastName = profile.last_name || "";
+
+      return {
+        id: profile.id,
+        careflowId: profile.careflow_id || null,
+        name: `${firstName} ${lastName}`.trim(),
+        email: authUser?.email || "",
+        createdAt: profile.created_at || null,
+      };
+    });
+
+    // Send the patient list back to React.
+    return response.json(patients);
+  } catch (error) {
+    console.error("Unable to load patient directory:", error);
+
+    return response.status(500).json({
+      message: "Unable to load patients.",
+    });
+  }
+});
+
+adminRouter.get("/patients/:patientId", async (request, response) => {
+  try {
+    // Make sure the person requesting the patient is an Admin.
+    const adminContext = await requireAdmin(request, response);
+
+    if (!adminContext) {
+      return;
+    }
+
+    const { supabaseAdmin } = adminContext;
+
+    // Get the patient ID from the URL.
+    const patientId = request.params.patientId;
+
+    // Find the patient's profile in the profiles table.
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select(
+        "id, first_name, last_name, careflow_id, created_at, roles(name)",
+      )
+      .eq("id", patientId)
+      .single();
+
+    if (profileError || !profile) {
+      return response.status(404).json({
+        message: "Patient not found.",
+      });
+    }
+
+    // Make sure this profile actually belongs to a Patient.
+    if (getRelationName(profile.roles) !== "Patient") {
+      return response.status(404).json({
+        message: "Patient not found.",
+      });
+    }
+
+    // Get the matching Supabase Auth account.
+    const authResult =
+      await supabaseAdmin.auth.admin.getUserById(patientId);
+
+    if (authResult.error || !authResult.data?.user) {
+      return response.status(500).json({
+        message: "Unable to load the patient account.",
+      });
+    }
+
+    const authUser = authResult.data.user;
+
+    const firstName = profile.first_name || "";
+    const lastName = profile.last_name || "";
+
+    // Build a simple patient record for React.
+    const patient = {
+      id: profile.id,
+      careflowId: profile.careflow_id || null,
+      firstName: firstName,
+      lastName: lastName,
+      name: `${firstName} ${lastName}`.trim(),
+      email: authUser.email || "",
+      createdAt: profile.created_at || authUser.created_at || null,
+      emailConfirmed: Boolean(authUser.email_confirmed_at),
+      isActive:
+        !authUser.banned_until ||
+        new Date(authUser.banned_until) <= new Date(),
+    };
+
+    return response.json(patient);
+  } catch (error) {
+    console.error("Unable to load patient record:", error);
+
+    return response.status(500).json({
+      message: "Unable to load patient record.",
+    });
+  }
+});
+
 adminRouter.get("/access-options", async (request, response) => {
   try {
     const adminContext = await requireAdmin(request, response);
