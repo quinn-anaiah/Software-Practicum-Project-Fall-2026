@@ -130,3 +130,17 @@ export function updateAdminUserStatus(userId, isActive) {
 export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
+
+export async function fetchStudentCases() {
+  const response = await fetch("/api/student/cases");
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to load cases.",
+    );
+  }
+
+  return payload;
+}
