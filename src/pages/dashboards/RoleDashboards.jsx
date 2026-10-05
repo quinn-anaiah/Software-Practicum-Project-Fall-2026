@@ -1,11 +1,7 @@
+import { useEffect, useState } from "react";
+import { fetchAdminUsers } from "../../lib/api";
+
 const dashboardContent = {
-  Admin: {
-    eyebrow: "Administration",
-    title: "Careflow operations",
-    description:
-      "Manage accounts, access, and system activity as database modules are connected.",
-    areas: ["User access", "Operational activity", "System configuration"],
-  },
   Instructor: {
     eyebrow: "Instructor workspace",
     title: "Teaching workspace",
@@ -13,6 +9,7 @@ const dashboardContent = {
       "Cohort activity, scenario progress, and submitted work will load here from your assigned classrooms.",
     areas: ["Assigned classrooms", "Scenario progress", "Review queue"],
   },
+
   Patient: {
     eyebrow: "My health",
     title: "Your care portal",
@@ -20,6 +17,7 @@ const dashboardContent = {
       "Appointments, care-team information, and clinical updates will appear here once they are connected to your profile.",
     areas: ["Upcoming appointments", "Care team", "Health updates"],
   },
+
   Student: {
     eyebrow: "My cases",
     title: "Your learning workspace",
@@ -29,40 +27,299 @@ const dashboardContent = {
   },
 };
 
-function RoleDashboard({ user }) {
-  const content = dashboardContent[user.role] || dashboardContent.Patient;
+
+// Finds how many users belong to a certain role.
+function getRoleCount(stats, roleName) {
+  if (!stats) {
+    return 0;
+  }
+
+  const role = stats.roleBreakdown?.find(
+    (item) => item.name === roleName,
+  );
+
+  return role ? role.count : 0;
+}
+
+
+// Admin Operations dashboard.
+function AdminOperationsDashboard({ user }) {
+  const [stats, setStats] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadOverview() {
+      try {
+        setIsLoading(true);
+        setError("");
+
+        // This already exists for the Global User Search page.
+        const result = await fetchAdminUsers();
+
+        setStats(result.stats);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Unable to load the operations overview.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadOverview();
+  }, []);
+
+
+  if (isLoading) {
+    return (
+      <div className="dashboard-page content-page">
+        <p>Loading operations overview...</p>
+      </div>
+    );
+  }
+
+
+  if (error) {
+    return (
+      <div className="dashboard-page content-page">
+        <section className="page-heading">
+          <div>
+            <p className="section-label">Administration</p>
+
+            <h1>Operations overview</h1>
+
+            <p>{error}</p>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+
+  const patients = getRoleCount(stats, "Patient");
+  const instructors = getRoleCount(stats, "Instructor");
+  const students = getRoleCount(stats, "Student");
+  const admins = getRoleCount(stats, "Admin");
+
+
+  const overviewCards = [
+    {
+      label: "Total accounts",
+      value: stats?.totalUsers || 0,
+      description: "All Careflow user accounts",
+    },
+
+    {
+      label: "Patients",
+      value: patients,
+      description: "Registered patient accounts",
+    },
+
+    {
+      label: "Instructors",
+      value: instructors,
+      description: "Instructor accounts",
+    },
+
+    {
+      label: "Students",
+      value: students,
+      description: "Student accounts",
+    },
+
+    {
+      label: "New this week",
+      value: stats?.newThisWeek || 0,
+      description: "Accounts created during the last 7 days",
+    },
+
+    {
+      label: "Instructor cases",
+      value: "—",
+      description: "Scenario database not connected yet",
+    },
+  ];
+
 
   return (
     <div className="dashboard-page content-page role-dashboard">
+
+      {/* Heading */}
       <section className="page-heading">
         <div>
-          <p className="section-label">{content.eyebrow}</p>
-          <h1>Welcome back, {user.name.split(" ")[0]}</h1>
-          <p>{content.description}</p>
-        </div>
-      </section>
-      <section className="role-dashboard__areas">
-        {content.areas.map((area) => (
-          <article className="panel role-dashboard__area" key={area}>
-            <p className="section-label">Database connection pending</p>
-            <h2>{area}</h2>
-            <p>No records to display yet.</p>
-          </article>
-        ))}
-      </section>
-      <section className="panel role-dashboard__notice">
-        <span>↗</span>
-        <div>
-          <p className="section-label">Next integration step</p>
-          <h2>{content.title} is database-ready</h2>
+          <p className="section-label">
+            Administration
+          </p>
+
+          <h1>
+            Welcome back, {user.name.split(" ")[0]}
+          </h1>
+
           <p>
-            This dashboard will request only the records authorized for your
-            role after its API endpoint is added.
+            Overview of Careflow users, patients, instructors,
+            students, and system activity.
           </p>
         </div>
       </section>
+
+
+      {/* Main statistics */}
+      <section className="role-dashboard__areas">
+
+        {overviewCards.map((card) => (
+          <article
+            className="panel role-dashboard__area"
+            key={card.label}
+          >
+            <p className="section-label">
+              {card.label}
+            </p>
+
+            <h2
+              style={{
+                fontSize: "36px",
+                marginTop: "10px",
+                marginBottom: "8px",
+              }}
+            >
+              {card.value}
+            </h2>
+
+            <p>
+              {card.description}
+            </p>
+          </article>
+        ))}
+
+      </section>
+
+
+      {/* Additional system information */}
+      <section className="panel role-dashboard__notice">
+
+        <span>↗</span>
+
+        <div>
+          <p className="section-label">
+            System overview
+          </p>
+
+          <h2>
+            Careflow database is connected
+          </h2>
+
+          <p>
+            {patients} patients, {instructors} instructors,
+            {" "}
+            {students} students, and {admins} administrators
+            are currently registered in Careflow.
+          </p>
+
+          <p>
+            {stats?.usersWithSubrole || 0} users currently have
+            a discipline or subrole assigned.
+          </p>
+        </div>
+
+      </section>
+
     </div>
   );
 }
+
+
+function RoleDashboard({ user }) {
+
+  // Admin gets the real database-backed Operations dashboard.
+  if (user.role === "Admin") {
+    return <AdminOperationsDashboard user={user} />;
+  }
+
+
+  // Other roles continue using their current dashboard.
+  const content =
+    dashboardContent[user.role] ||
+    dashboardContent.Patient;
+
+
+  return (
+    <div className="dashboard-page content-page role-dashboard">
+
+      <section className="page-heading">
+        <div>
+
+          <p className="section-label">
+            {content.eyebrow}
+          </p>
+
+          <h1>
+            Welcome back, {user.name.split(" ")[0]}
+          </h1>
+
+          <p>
+            {content.description}
+          </p>
+
+        </div>
+      </section>
+
+
+      <section className="role-dashboard__areas">
+
+        {content.areas.map((area) => (
+          <article
+            className="panel role-dashboard__area"
+            key={area}
+          >
+
+            <p className="section-label">
+              Database connection pending
+            </p>
+
+            <h2>
+              {area}
+            </h2>
+
+            <p>
+              No records to display yet.
+            </p>
+
+          </article>
+        ))}
+
+      </section>
+
+
+      <section className="panel role-dashboard__notice">
+
+        <span>↗</span>
+
+        <div>
+
+          <p className="section-label">
+            Next integration step
+          </p>
+
+          <h2>
+            {content.title} is database-ready
+          </h2>
+
+          <p>
+            This dashboard will request only the records
+            authorized for your role after its API endpoint
+            is added.
+          </p>
+
+        </div>
+
+      </section>
+
+    </div>
+  );
+}
+
 
 export default RoleDashboard;
