@@ -132,13 +132,200 @@ export function fetchAdminAuditLog() {
 }
 
 export async function fetchStudentCases() {
-  const response = await fetch("/api/student/cases");
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch(
+    "/api/student/cases",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
   const payload = await response.json();
 
   if (!response.ok) {
     throw new Error(
       payload.message || "Unable to load cases.",
+    );
+  }
+
+  return payload;
+}
+
+export async function saveStudentNote(note) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch("/api/student/notes", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(note),
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to save note.",
+    );
+  }
+
+  return payload;
+}
+
+export async function fetchStudentNote(assignmentId) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch(
+    `/api/student/notes/${assignmentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to load note.",
+    );
+  }
+
+  return payload;
+}
+
+export async function updateStudentCaseStatus(
+  assignmentId,
+  encounterStatus,
+) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch(
+    `/api/student/cases/${assignmentId}/status`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        encounterStatus,
+      }),
+    },
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message ||
+        "Unable to update encounter status.",
+    );
+  }
+
+  return payload;
+}
+
+export async function saveStudentOrders(
+  assignmentId,
+  orders,
+) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch("/api/student/orders", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      assignmentId,
+      orders,
+    }),
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to save orders.",
+    );
+  }
+
+  return payload;
+}
+
+export async function fetchStudentOrders(assignmentId) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch(
+    `/api/student/orders/${assignmentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to load orders.",
     );
   }
 
