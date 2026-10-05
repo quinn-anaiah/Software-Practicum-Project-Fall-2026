@@ -15,6 +15,8 @@ import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import PasswordSetupPage from "../pages/PasswordSetupPage";
 import SettingsPage from "../pages/SettingsPage";
+import StudentOverviewPage from "../pages/StudentOverviewPage";
+import StudentCaseDetailsPage from "../pages/StudentCaseDetailsPage";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -107,13 +109,11 @@ const routesByRole = {
   Student: {
     navigation: studentNavigation,
     pages: {
-      overview: { path: "/student", Component: DashboardPage },
-      caseDetail: placeholder(
-        "/student/case",
-        "Assigned case",
-        "No case selected",
-        "Case details will load here after your instructor assigns a scenario.",
-      ),
+      overview: { path: "/student", Component: StudentOverviewPage },
+      caseDetail: {
+        path: "/student/case",
+        Component: StudentCaseDetailsPage,
+      },
       noteForm: placeholder(
         "/student/note",
         "Clinical note",
@@ -156,13 +156,22 @@ function DashboardRoute({ onLogout, user }) {
 
   const [activePage, page] = activePageEntry;
 
-  function navigateTo(pageId) {
-    navigate(routeConfig.pages[pageId]?.path || routeConfig.pages.overview.path);
+  function navigateTo(pageId, options = {}) {
+    const path =
+      routeConfig.pages[pageId]?.path ||
+      routeConfig.pages.overview.path;
+
+    if (options.caseId) {
+      navigate(`${path}?id=${options.caseId}`);
+      return;
+    }
+
+    navigate(path);
   }
 
   const ActivePage = page.Component;
   const content = ActivePage ? (
-    <ActivePage user={user} />
+    <ActivePage user={user} onNavigate={navigateTo} />
   ) : (
     <DatabasePlaceholderPage {...page} />
   );
