@@ -132,7 +132,24 @@ export function fetchAdminAuditLog() {
 }
 
 export async function fetchStudentCases() {
-  const response = await fetch("/api/student/cases");
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch(
+    "/api/student/cases",
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
 
   const payload = await response.json();
 
