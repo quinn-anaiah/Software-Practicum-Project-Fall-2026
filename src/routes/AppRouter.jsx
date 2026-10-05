@@ -1,71 +1,131 @@
-import {Navigate, Route, Routes, useLocation, useNavigate} from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
-import {instructorNavigation, patientNavigation, studentNavigation} from "../lib/navigation";
-import CareTeamPage from "../pages/CareTeamPage";
-import HealthInsightsPage from "../pages/HealthInsightsPage";
-import InstructorCasesPage from "../pages/InstructorCasesPage";
-import InstructorCloseoutPage from "../pages/InstructorCloseoutPage";
-import InstructorCohortsPage from "../pages/InstructorCohortsPage";
-import InstructorDashboardPage from "../pages/InstructorDashboardPage";
-import InstructorExpectationsPage from "../pages/InstructorExpectationsPage";
-import InstructorFeedbackPage from "../pages/InstructorFeedbackPage";
-import InstructorMonitoringPage from "../pages/InstructorMonitoringPage";
-import InstructorOversightPage from "../pages/InstructorOversightPage";
-import InstructorReviewPage from "../pages/InstructorReviewPage";
+import {
+  adminNavigation,
+  instructorNavigation,
+  patientNavigation,
+  studentNavigation,
+} from "../lib/navigation";
+import DatabasePlaceholderPage from "../pages/DatabasePlaceholderPage";
+import AdminUserDirectoryPage from "../pages/AdminUserDirectoryPage";
+import DashboardPage from "../pages/DashboardPage";
+import InstructorClassesPage from "../pages/InstructorClassesPage";
+import InstructorOverviewPage from "../pages/InstructorOverviewPage";
 import LoginPage from "../pages/LoginPage";
-import PatientAppointmentsPage from "../pages/PatientAppointmentsPage";
-import PatientDashboardPage from "../pages/PatientDashboardPage";
+import RegisterPage from "../pages/RegisterPage";
+import PasswordSetupPage from "../pages/PasswordSetupPage";
 import SettingsPage from "../pages/SettingsPage";
-import StudentCaseDetailPage from "../pages/StudentCaseDetailPage";
-import StudentDashboardPage from "../pages/StudentDashboardPage";
-import StudentNoteFormPage from "../pages/StudentNoteFormPage";
-import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
+
+function placeholder(path, eyebrow, title, description) {
+  return { path, eyebrow, title, description };
+}
 
 const routesByRole = {
+  Admin: {
+    navigation: adminNavigation,
+    pages: {
+      overview: { path: "/admin", Component: DashboardPage },
+      users: { path: "/admin/users", Component: AdminUserDirectoryPage },
+      settings: { path: "/admin/settings", Component: SettingsPage },
+    },
+  },
   Instructor: {
     navigation: instructorNavigation,
     pages: {
-      overview: { path: "/instructor", Component: InstructorDashboardPage },
-      cohorts: { path: "/instructor/cohorts", Component: InstructorCohortsPage },
-      cases: { path: "/instructor/cases", Component: InstructorCasesPage },
-      expectations: {
-        path: "/instructor/expectations",
-        Component: InstructorExpectationsPage,
-      },
-      monitoring: {
-        path: "/instructor/monitoring",
-        Component: InstructorMonitoringPage,
-      },
-      review: { path: "/instructor/review", Component: InstructorReviewPage },
-      feedback: { path: "/instructor/feedback", Component: InstructorFeedbackPage },
-      oversight: {
-        path: "/instructor/oversight",
-        Component: InstructorOversightPage,
-      },
-      closeout: { path: "/instructor/closeout", Component: InstructorCloseoutPage },
+      overview: { path: "/instructor", Component: InstructorOverviewPage },
+      cohorts: { path: "/instructor/cohorts", Component: InstructorClassesPage },
+      cases: placeholder(
+        "/instructor/cases",
+        "Scenario library",
+        "No training scenarios yet",
+        "Reusable scenarios will appear here. Assign them to a class from the Classes workspace.",
+      ),
+      expectations: placeholder(
+        "/instructor/expectations",
+        "Expectations",
+        "No expectations configured yet",
+        "Rubrics, documentation requirements, and clinical traps will be loaded from the database.",
+      ),
+      monitoring: placeholder(
+        "/instructor/monitoring",
+        "Monitor activity",
+        "No learner activity yet",
+        "Encounter states and submission progress will appear here when cases are assigned.",
+      ),
+      review: placeholder(
+        "/instructor/review",
+        "Review & co-sign",
+        "No work pending review",
+        "Submitted notes and mock orders will appear here for review and attestation.",
+      ),
+      feedback: placeholder(
+        "/instructor/feedback",
+        "Feedback & grades",
+        "No work available for grading",
+        "Rubric scores, annotations, and feedback will load here once submissions exist.",
+      ),
+      oversight: placeholder(
+        "/instructor/oversight",
+        "Cohort oversight",
+        "No cohort analytics yet",
+        "Aggregate performance and audit activity will appear here when database reporting is connected.",
+      ),
+      closeout: placeholder(
+        "/instructor/closeout",
+        "Closeout",
+        "No cases ready for closeout",
+        "Completion, grade release, and archiving controls will appear here for completed scenarios.",
+      ),
       settings: { path: "/instructor/settings", Component: SettingsPage },
     },
   },
   Patient: {
     navigation: patientNavigation,
     pages: {
-      overview: { path: "/patient", Component: PatientDashboardPage },
-      careTeam: { path: "/patient/care-team", Component: CareTeamPage },
-      appointments: {
-        path: "/patient/appointments",
-        Component: PatientAppointmentsPage,
-      },
-      insights: { path: "/patient/insights", Component: HealthInsightsPage },
+      overview: { path: "/patient", Component: DashboardPage },
+      careTeam: placeholder(
+        "/patient/care-team",
+        "My care team",
+        "No care team is assigned yet",
+        "Your providers and support contacts will appear here after they are assigned.",
+      ),
+      appointments: placeholder(
+        "/patient/appointments",
+        "My schedule",
+        "No appointments yet",
+        "Upcoming visits and care history will appear here once appointment data is connected.",
+      ),
+      insights: placeholder(
+        "/patient/insights",
+        "Health insights",
+        "No health insights yet",
+        "Care-plan reminders and trends will appear here when clinical data is available.",
+      ),
       settings: { path: "/patient/settings", Component: SettingsPage },
     },
   },
   Student: {
     navigation: studentNavigation,
     pages: {
-      overview: { path: "/student", Component: StudentDashboardPage },
-      caseDetail: { path: "/student/case", Component: StudentCaseDetailPage },
-      noteForm: { path: "/student/note", Component: StudentNoteFormPage },
-      orderEntry: { path: "/student/orders", Component: StudentOrderEntryPage },
+      overview: { path: "/student", Component: DashboardPage },
+      caseDetail: placeholder(
+        "/student/case",
+        "Assigned case",
+        "No case selected",
+        "Case details will load here after your instructor assigns a scenario.",
+      ),
+      noteForm: placeholder(
+        "/student/note",
+        "Clinical note",
+        "No note available",
+        "Documentation tools will become available after a case is assigned.",
+      ),
+      orderEntry: placeholder(
+        "/student/orders",
+        "Mock orders",
+        "No orders available",
+        "Mock order entry will become available after a case is assigned.",
+      ),
       settings: { path: "/student/settings", Component: SettingsPage },
     },
   },
@@ -79,7 +139,7 @@ function getDefaultPath(user) {
   return user ? getRouteConfig(user.role).pages.overview.path : "/login";
 }
 
-function DashboardRoute({ onLogout, pageProps, user }) {
+function DashboardRoute({ onLogout, user }) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -95,11 +155,17 @@ function DashboardRoute({ onLogout, pageProps, user }) {
   }
 
   const [activePage, page] = activePageEntry;
-  const ActivePage = page.Component;
 
   function navigateTo(pageId) {
     navigate(routeConfig.pages[pageId]?.path || routeConfig.pages.overview.path);
   }
+
+  const ActivePage = page.Component;
+  const content = ActivePage ? (
+    <ActivePage user={user} />
+  ) : (
+    <DatabasePlaceholderPage {...page} />
+  );
 
   return (
     <DashboardLayout
@@ -109,12 +175,12 @@ function DashboardRoute({ onLogout, pageProps, user }) {
       onNavigate={navigateTo}
       user={user}
     >
-      <ActivePage {...pageProps} onNavigate={navigateTo} user={user} />
+      {content}
     </DashboardLayout>
   );
 }
 
-function AppRouter({ onLogin, onLogout, pageProps, user }) {
+function AppRouter({ onLogin, onLogout, user }) {
   const navigate = useNavigate();
 
   function handleLogin(authenticatedUser) {
@@ -126,6 +192,8 @@ function AppRouter({ onLogin, onLogout, pageProps, user }) {
     onLogout();
     navigate("/login", { replace: true });
   }
+
+  const protectedRoute = <DashboardRoute onLogout={handleLogout} user={user} />;
 
   return (
     <Routes>
@@ -141,34 +209,19 @@ function AppRouter({ onLogin, onLogout, pageProps, user }) {
       />
       <Route
         element={
-          <DashboardRoute
-            onLogout={handleLogout}
-            pageProps={pageProps}
-            user={user}
-          />
+          user ? (
+            <Navigate replace to={getDefaultPath(user)} />
+          ) : (
+            <RegisterPage />
+          )
         }
-        path="/instructor/*"
+        path="/register"
       />
-      <Route
-        element={
-          <DashboardRoute
-            onLogout={handleLogout}
-            pageProps={pageProps}
-            user={user}
-          />
-        }
-        path="/patient/*"
-      />
-      <Route
-        element={
-          <DashboardRoute
-            onLogout={handleLogout}
-            pageProps={pageProps}
-            user={user}
-          />
-        }
-        path="/student/*"
-      />
+      <Route element={<PasswordSetupPage />} path="/set-password" />
+      <Route element={protectedRoute} path="/instructor/*" />
+      <Route element={protectedRoute} path="/admin/*" />
+      <Route element={protectedRoute} path="/patient/*" />
+      <Route element={protectedRoute} path="/student/*" />
       <Route element={<Navigate replace to={getDefaultPath(user)} />} path="*" />
     </Routes>
   );
