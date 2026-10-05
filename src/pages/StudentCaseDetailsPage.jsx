@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { fetchStudentCases } from "../lib/api";
+import {
+  fetchStudentCases,
+  fetchStudentNote,
+} from "../lib/api";
 
 const statusOrder = [
   "Scheduled",
@@ -28,6 +31,7 @@ function StudentCaseDetailPage({
 }) {
   const [searchParams] = useSearchParams();
   const [patientCase, setPatientCase] = useState(null);
+  const [savedNote, setSavedNote] = useState(null);
   const [casesLoading, setCasesLoading] = useState(true);
   const [casesError, setCasesError] = useState("");
 
@@ -58,6 +62,15 @@ function StudentCaseDetailPage({
         );
 
         setPatientCase(selectedCase ?? null);
+        if (selectedCase?.assignment_id) {
+          const note = await fetchStudentNote(
+            selectedCase.assignment_id,
+          );
+
+          if (!isCurrent) return;
+
+          setSavedNote(note);
+        }
       } catch (error) {
         if (isCurrent) {
           setCasesError(error.message);
@@ -108,7 +121,6 @@ function StudentCaseDetailPage({
     );
   }
 
-  const note = studentNotes[patientCase.id];
   const orders = studentOrders[patientCase.id] ?? [];
   const submission = studentSubmissions[patientCase.id];
   const medications = patientCase.medications ?? [];
@@ -118,13 +130,14 @@ function StudentCaseDetailPage({
     patientCase.encounterStatus ??
     patientCase.starting_encounter_status;
 
-  const noteStatus =
-    patientCase.noteStatus ??
-    (note ? "In progress" : "Not started");
+  const noteStatus = savedNote
+    ? "In progress"
+    : "Not started";
 
   const encounterInProgress = encounterStatus === "In progress";
   const isSubmitted = submission?.status === "Pending Review";
-  const readyToSubmit = Boolean(note) && orders.length > 0;
+  const readyToSubmit =
+    Boolean(savedNote) && orders.length > 0;
   const statusButtonLabel = statusButtonLabels[encounterStatus];
 
   function advanceStatus() {

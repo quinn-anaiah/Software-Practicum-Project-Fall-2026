@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { fetchStudentCases } from "../lib/api";
+import {
+  fetchStudentCases,
+  fetchStudentNote,
+  saveStudentNote,
+} from "../lib/api";
 
 const noteFields = [
   {
@@ -73,6 +77,20 @@ function StudentNoteFormPage({ onNavigate }) {
         );
 
         setPatientCase(selectedCase ?? null);
+        if (selectedCase?.assignment_id) {
+          const savedNote = await fetchStudentNote(
+            selectedCase.assignment_id,
+          );
+
+          if (savedNote?.content) {
+            setFormData({
+              subjective: savedNote.content.subjective || "",
+              objective: savedNote.content.objective || "",
+              assessment: savedNote.content.assessment || "",
+              plan: savedNote.content.plan || "",
+            });
+          }
+        }
       } catch (loadError) {
         if (isCurrent) {
           setError(loadError.message);
@@ -100,13 +118,21 @@ function StudentNoteFormPage({ onNavigate }) {
     }));
   }
 
-  function handleSave() {
-    console.log("Note saved:", {
-      caseId: patientCase.id,
-      ...formData,
-    });
+  async function handleSave() {
+    try {
+      setError("");
 
-    alert("Note saved locally for now.");
+      await saveStudentNote({
+        assignmentId: patientCase.assignment_id,
+        content: formData,
+      });
+
+      onNavigate("caseDetail", {
+        caseId: patientCase.id,
+      });
+    } catch (saveError) {
+      setError(saveError.message);
+    }
   }
 
   function goBackToCase() {

@@ -161,3 +161,65 @@ export async function fetchStudentCases() {
 
   return payload;
 }
+
+export async function saveStudentNote(note) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch("/api/student/notes", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(note),
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to save note.",
+    );
+  }
+
+  return payload;
+}
+
+export async function fetchStudentNote(assignmentId) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token",
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again.",
+    );
+  }
+
+  const response = await fetch(
+    `/api/student/notes/${assignmentId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to load note.",
+    );
+  }
+
+  return payload;
+}
