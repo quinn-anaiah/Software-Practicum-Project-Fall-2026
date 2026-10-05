@@ -305,11 +305,33 @@ adminRouter.get("/patients/:patientId", async (request, response) => {
 
     const authUser = authResult.data.user;
 
+    // Get the patient's information from patient_records.
+    const { data: patientRecord, error: patientRecordError } =
+      await supabaseAdmin
+        .from("patient_records")
+        .select(
+          "date_of_birth, sex, phone, address, primary_provider, created_at, updated_at",
+        )
+        .eq("profile_id", patientId)
+        .maybeSingle();
+
+    if (patientRecordError) {
+      console.error(
+        "Unable to load patient information:",
+        patientRecordError.message,
+      );
+
+      return response.status(500).json({
+        message: "Unable to load patient information.",
+      });
+    }
+
     const firstName = profile.first_name || "";
     const lastName = profile.last_name || "";
 
-    // Build a simple patient record for React.
+    // Build the patient object that will be sent to React.
     const patient = {
+      // Account information from profiles and Supabase Auth.
       id: profile.id,
       careflowId: profile.careflow_id || null,
       firstName: firstName,
@@ -318,9 +340,17 @@ adminRouter.get("/patients/:patientId", async (request, response) => {
       email: authUser.email || "",
       createdAt: profile.created_at || authUser.created_at || null,
       emailConfirmed: Boolean(authUser.email_confirmed_at),
+
       isActive:
         !authUser.banned_until ||
         new Date(authUser.banned_until) <= new Date(),
+
+      // Patient-specific information from patient_records.
+      dateOfBirth: patientRecord?.date_of_birth || null,
+      sex: patientRecord?.sex || null,
+      phone: patientRecord?.phone || null,
+      address: patientRecord?.address || null,
+      primaryProvider: patientRecord?.primary_provider || null,
     };
 
     return response.json(patient);

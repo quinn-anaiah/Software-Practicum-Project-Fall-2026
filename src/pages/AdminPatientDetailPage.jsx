@@ -22,6 +22,7 @@ function AdminPatientDetailPage() {
 
   useEffect(() => {
     async function loadPatient() {
+      // Make sure a patient ID was included in the URL.
       if (!patientId) {
         setError("No patient was selected.");
         setIsLoading(false);
@@ -32,8 +33,10 @@ function AdminPatientDetailPage() {
         setIsLoading(true);
         setError("");
 
+        // Ask the backend for this patient's information.
         const patientData = await fetchAdminPatient(patientId);
 
+        // Save the patient information into React state.
         setPatient(patientData);
       } catch (loadError) {
         setError(
@@ -49,6 +52,7 @@ function AdminPatientDetailPage() {
     loadPatient();
   }, [patientId]);
 
+  // Formats database dates into an easier-to-read format.
   function formatDate(dateValue) {
     if (!dateValue) {
       return "Not available";
@@ -57,6 +61,7 @@ function AdminPatientDetailPage() {
     return new Date(dateValue).toLocaleDateString();
   }
 
+  // Display while patient information is loading.
   if (isLoading) {
     return (
       <div className="dashboard-page content-page">
@@ -65,13 +70,16 @@ function AdminPatientDetailPage() {
     );
   }
 
+  // Display if something goes wrong.
   if (error) {
     return (
       <div className="dashboard-page content-page">
         <section className="page-heading">
           <div>
             <p className="section-label">Patient record</p>
+
             <h1>Unable to load patient</h1>
+
             <p>{error}</p>
           </div>
         </section>
@@ -89,6 +97,7 @@ function AdminPatientDetailPage() {
 
   return (
     <div className="dashboard-page content-page">
+      {/* Page heading */}
       <section className="page-heading">
         <div>
           <p className="section-label">Patient record</p>
@@ -96,8 +105,8 @@ function AdminPatientDetailPage() {
           <h1>{patient.name}</h1>
 
           <p>
-            View the Careflow account information associated with this
-            patient.
+            View the account and patient information associated with this
+            Careflow patient.
           </p>
         </div>
 
@@ -110,10 +119,11 @@ function AdminPatientDetailPage() {
         </button>
       </section>
 
+      {/* Account information from profiles and Supabase Auth */}
       <section className="panel" style={{ padding: "24px" }}>
         <p className="section-label">Account information</p>
 
-        <h2>Patient details</h2>
+        <h2>Patient account</h2>
 
         <p>
           <strong>First name:</strong>{" "}
@@ -148,6 +158,44 @@ function AdminPatientDetailPage() {
         <p>
           <strong>Account status:</strong>{" "}
           {patient.isActive ? "Active" : "Inactive"}
+        </p>
+      </section>
+
+      {/* Patient-specific information from patient_records */}
+      <section
+        className="panel"
+        style={{
+          padding: "24px",
+          marginTop: "20px",
+        }}
+      >
+        <p className="section-label">Patient information</p>
+
+        <h2>Demographics</h2>
+
+        <p>
+          <strong>Date of birth:</strong>{" "}
+          {formatDate(patient.dateOfBirth)}
+        </p>
+
+        <p>
+          <strong>Sex:</strong>{" "}
+          {patient.sex || "Not available"}
+        </p>
+
+        <p>
+          <strong>Phone:</strong>{" "}
+          {patient.phone || "Not available"}
+        </p>
+
+        <p>
+          <strong>Address:</strong>{" "}
+          {patient.address || "Not available"}
+        </p>
+
+        <p>
+          <strong>Primary provider:</strong>{" "}
+          {patient.primaryProvider || "Not assigned"}
         </p>
       </section>
     </div>
