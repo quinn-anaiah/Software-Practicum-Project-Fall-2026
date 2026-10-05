@@ -2,7 +2,6 @@ import express from "express";
 import adminRouter from "./routes/admin.js";
 import authRouter from "./routes/auth.js";
 import rolesRouter from "./routes/roles.js";
-import authRouter from "./routes/auth.js";
 
 const app = express();
 const port = process.env.PORT || 3001;
