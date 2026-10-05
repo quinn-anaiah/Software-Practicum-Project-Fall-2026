@@ -155,7 +155,7 @@ function StudentCaseDetailPage({
   const encounterInProgress = encounterStatus === "In progress";
   const isSubmitted = submission?.status === "Pending Review";
   const readyToSubmit =
-    Boolean(savedNote) && orders.length > 0;
+    Boolean(savedNote) && savedOrders.length > 0;
   const statusButtonLabel = statusButtonLabels[encounterStatus];
 
   async function advanceStatus() {
@@ -360,7 +360,11 @@ function StudentCaseDetailPage({
                   !readyToSubmit ||
                   isSubmitted
                 }
-                onClick={() => onNavigate("submission")}
+                onClick={() =>
+                  onNavigate("submission", {
+                    caseId: patientCase.id,
+                  })
+}
               >
                 {isSubmitted
                   ? "Submitted"
