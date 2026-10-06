@@ -171,6 +171,13 @@ export function createInstructorClassroomGroup(classroomId, group) {
   });
 }
 
+export function addInstructorGroupMembers(classroomId, groupId, studentIds) {
+  return instructorRequest(`/classrooms/${classroomId}/groups/${groupId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ studentIds }),
+  });
+}
+
 export async function fetchAdminPatients() {
   //Get the login token from session storage
   const accessToken = sessionStorage.getItem("careflow-access-token");

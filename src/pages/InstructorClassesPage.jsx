@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  addInstructorGroupMembers,
   createInstructorClassroom,
   createInstructorClassroomGroup,
   fetchEligibleInstructorStudents,
@@ -26,6 +27,9 @@ function InstructorClassesPage({ user }) {
   const [isGroupOpen, setIsGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedGroupStudentIds, setSelectedGroupStudentIds] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [isAddMembersOpen, setIsAddMembersOpen] = useState(false);
+  const [selectedNewMemberIds, setSelectedNewMemberIds] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -145,7 +149,45 @@ function InstructorClassesPage({ user }) {
     }
   }
 
+  function toggleNewMember(studentId) {
+    setSelectedNewMemberIds((current) =>
+      current.includes(studentId)
+        ? current.filter((id) => id !== studentId)
+        : [...current, studentId],
+    );
+  }
+
+  async function handleAddMembers(event) {
+    event.preventDefault();
+    if (!selectedGroup) return;
+    setError("");
+    setNotice("");
+    setIsSaving(true);
+    try {
+      const result = await addInstructorGroupMembers(
+        classroomId,
+        selectedGroup.id,
+        selectedNewMemberIds,
+      );
+      const refreshedDetail = await fetchInstructorClassroom(classroomId);
+      setClassroomDetail(refreshedDetail);
+      setSelectedNewMemberIds([]);
+      setIsAddMembersOpen(false);
+      setNotice(result.message);
+    } catch (memberError) {
+      setError(memberError instanceof Error ? memberError.message : "Unable to add group members.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   const classroom = classroomDetail?.classroom;
+  const assignedGroupByStudent = new Map(
+    (classroomDetail?.groups || []).flatMap((group) =>
+      group.students.map((student) => [student.id, group.name]),
+    ),
+  );
+  const selectedGroup = classroomDetail?.groups.find((group) => group.id === selectedGroupId);
 
   return (
     <div className="dashboard-page content-page instructor-workspace">
@@ -291,14 +333,87 @@ function InstructorClassesPage({ user }) {
             {classroomDetail.groups.length ? (
               <div className="group-overview-list">
                 {classroomDetail.groups.map((group) => (
-                  <article key={group.id}>
+                  <button
+                    className={selectedGroupId === group.id ? "group-card group-card--selected" : "group-card"}
+                    key={group.id}
+                    onClick={() => {
+                      setSelectedGroupId(group.id);
+                      setIsAddMembersOpen(false);
+                    }}
+                    type="button"
+                  >
                     <div><span>{group.name.slice(0, 1).toUpperCase()}</span><h3>{group.name}</h3><small>{group.students.length} members</small></div>
                     <p>{group.students.map((student) => student.name).join(" · ")}</p>
-                  </article>
+                  </button>
                 ))}
               </div>
             ) : <p className="directory-loading">Create a group to organize your enrolled learners for shared scenarios.</p>}
           </section>
+
+          {selectedGroup && (
+            <section className="group-detail-workspace">
+              <article className="panel group-detail-panel">
+                <div className="panel__header">
+                  <div><p className="section-label">Selected learning team</p><h2>{selectedGroup.name}</h2></div>
+                  <span className="preview-label">{selectedGroup.students.length} members</span>
+                </div>
+                <p className="group-detail-panel__intro">Review the team roster, add ungrouped learners, and prepare this team for a shared clinical scenario.</p>
+                <div className="group-member-grid">
+                  {selectedGroup.students.map((student) => (
+                    <div key={student.id}>
+                      <span>{student.name.split(" ").map((part) => part[0]).join("")}</span>
+                      <div><strong>{student.name}</strong><small>{student.utepId ? `UTEP ID ${student.utepId}` : student.subrole}</small></div>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className="secondary-button"
+                  disabled={!classroomDetail.students.some((student) => !assignedGroupByStudent.has(student.id))}
+                  onClick={() => setIsAddMembersOpen(true)}
+                  type="button"
+                >
+                  Add registered members
+                </button>
+              </article>
+              <article className="panel group-assignment-panel">
+                <p className="section-label">Scenario workspace</p>
+                <h2>Plan a group assignment</h2>
+                <p>The group is ready for a shared scenario. We will connect this workspace to the clinical-case source after we add durable assignment and per-student encounter tables.</p>
+                <div className="assignment-readiness">
+                  <span>1</span><div><strong>Group roster ready</strong><small>{selectedGroup.students.length} registered learners</small></div>
+                  <span>2</span><div><strong>Select a case</strong><small>Next database integration</small></div>
+                  <span>3</span><div><strong>Release to learners</strong><small>Creates individual encounter records</small></div>
+                </div>
+              </article>
+            </section>
+          )}
+
+          {selectedGroup && isAddMembersOpen && (
+            <section className="panel create-class-panel group-creation-panel">
+              <div className="panel__header">
+                <div><p className="section-label">Update {selectedGroup.name}</p><h2>Add registered members</h2></div>
+                <button aria-label="Close member form" className="row-action" onClick={() => setIsAddMembersOpen(false)} type="button">×</button>
+              </div>
+              <form className="create-class-form" onSubmit={handleAddMembers}>
+                <div>
+                  <p className="create-class-form__hint">Only currently ungrouped students are available.</p>
+                  <div className="eligible-learner-list">
+                    {classroomDetail.students.filter((student) => !assignedGroupByStudent.has(student.id)).map((student) => (
+                      <label key={student.id}>
+                        <input checked={selectedNewMemberIds.includes(student.id)} onChange={() => toggleNewMember(student.id)} type="checkbox" />
+                        <span>{student.name}</span>
+                        <small>{student.subrole}</small>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="admin-form__actions">
+                  <button className="secondary-button" onClick={() => setIsAddMembersOpen(false)} type="button">Cancel</button>
+                  <button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Adding…" : "Add members"}</button>
+                </div>
+              </form>
+            </section>
+          )}
 
           {isGroupOpen && (
             <section className="panel create-class-panel group-creation-panel">
@@ -316,10 +431,22 @@ function InstructorClassesPage({ user }) {
                   <p className="create-class-form__hint">Only students enrolled in <strong>{classroom.short_name}</strong> can join this group.</p>
                   <div className="eligible-learner-list">
                     {classroomDetail.students.map((student) => (
-                      <label key={student.id}>
-                        <input checked={selectedGroupStudentIds.includes(student.id)} onChange={() => toggleGroupStudent(student.id)} type="checkbox" />
+                      <label
+                        className={assignedGroupByStudent.has(student.id) ? "eligible-learner-list__assigned" : ""}
+                        key={student.id}
+                      >
+                        <input
+                          checked={selectedGroupStudentIds.includes(student.id)}
+                          disabled={assignedGroupByStudent.has(student.id)}
+                          onChange={() => toggleGroupStudent(student.id)}
+                          type="checkbox"
+                        />
                         <span>{student.name}</span>
-                        <small>{student.subrole}</small>
+                        <small>
+                          {assignedGroupByStudent.has(student.id)
+                            ? `Already in ${assignedGroupByStudent.get(student.id)}`
+                            : student.subrole}
+                        </small>
                       </label>
                     ))}
                   </div>

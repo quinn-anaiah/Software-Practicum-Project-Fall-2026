@@ -284,6 +284,27 @@ instructorRouter.post("/classrooms/:classroomId/groups", async (request, respons
       return response.status(400).json({ message: "Groups may contain only students enrolled in this classroom." });
     }
 
+    const { data: existingGroups, error: existingGroupsError } = await school
+      .from("classroom_groups")
+      .select("id")
+      .eq("classroom_id", access.classroom.id);
+    if (existingGroupsError) throw existingGroupsError;
+
+    const existingGroupIds = (existingGroups || []).map((group) => group.id);
+    if (existingGroupIds.length) {
+      const { data: existingMembers, error: existingMembersError } = await school
+        .from("classroom_group_members")
+        .select("student_id")
+        .in("group_id", existingGroupIds)
+        .in("student_id", studentIds);
+      if (existingMembersError) throw existingMembersError;
+      if (existingMembers?.length) {
+        return response.status(409).json({
+          message: "One or more selected students already belong to another group in this classroom.",
+        });
+      }
+    }
+
     const { data: group, error: groupError } = await school
       .from("classroom_groups")
       .insert({ classroom_id: access.classroom.id, name })
@@ -307,6 +328,69 @@ instructorRouter.post("/classrooms/:classroomId/groups", async (request, respons
   } catch (error) {
     console.error("Unable to create classroom group:", error);
     return response.status(500).json({ message: "Unable to create this group." });
+  }
+});
+
+instructorRouter.post("/classrooms/:classroomId/groups/:groupId/members", async (request, response) => {
+  const studentIds = [...new Set(Array.isArray(request.body.studentIds) ? request.body.studentIds : [])];
+  if (!studentIds.length) {
+    return response.status(400).json({ message: "Select at least one student to add." });
+  }
+
+  try {
+    const context = await requireInstructor(request, response);
+    if (!context) return;
+    const access = await verifyClassroomAccess(
+      context.supabaseAdmin,
+      context.profile,
+      request.params.classroomId,
+    );
+    if (!access) return response.status(404).json({ message: "Classroom not found." });
+
+    const school = context.supabaseAdmin.schema("school");
+    const { data: group, error: groupError } = await school
+      .from("classroom_groups")
+      .select("id, name")
+      .eq("id", request.params.groupId)
+      .eq("classroom_id", access.classroom.id)
+      .single();
+    if (groupError || !group) return response.status(404).json({ message: "Group not found." });
+
+    const { data: enrollments, error: enrollmentError } = await school
+      .from("classroom_enrollments")
+      .select("student_id")
+      .eq("classroom_id", access.classroom.id)
+      .eq("status", "active");
+    if (enrollmentError) throw enrollmentError;
+    const enrolledIds = new Set((enrollments || []).map((enrollment) => enrollment.student_id));
+    if (!studentIds.every((studentId) => enrolledIds.has(studentId))) {
+      return response.status(400).json({ message: "Only active classroom members can be added to a group." });
+    }
+
+    const { data: existingMembers, error: existingMembersError } = await school
+      .from("classroom_group_members")
+      .select("student_id")
+      .eq("classroom_id", access.classroom.id)
+      .in("student_id", studentIds);
+    if (existingMembersError) throw existingMembersError;
+    if (existingMembers?.length) {
+      return response.status(409).json({
+        message: "One or more selected students already belong to a group in this classroom.",
+      });
+    }
+
+    const { error: memberError } = await school.from("classroom_group_members").insert(
+      studentIds.map((studentId) => ({
+        group_id: group.id,
+        classroom_id: access.classroom.id,
+        student_id: studentId,
+      })),
+    );
+    if (memberError) return response.status(400).json({ message: memberError.message });
+    return response.status(201).json({ message: `Members added to ${group.name}.` });
+  } catch (error) {
+    console.error("Unable to add group members:", error);
+    return response.status(500).json({ message: "Unable to add group members." });
   }
 });
 
