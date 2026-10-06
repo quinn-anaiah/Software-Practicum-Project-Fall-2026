@@ -131,6 +131,35 @@ export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
 
+export async function fetchAdminPatients() {
+  //Get the login token from session storage
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  //Ask the Express API for the list of patients, 
+  // passing the token in the Authorization header
+  const response = await fetch("/api/admin/patients", {
+    headers: { Authorization: `Bearer ${accessToken || ""}` },
+  });
+  const patients = await response.json();
+
+  if (!response.ok) {
+    throw new Error(patients.message || "Unable to load the patient directory.");
+  }
+
+  return patients;
+}
+
+export async function fetchAdminPatient(patientId) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch(`/api/admin/patients/${encodeURIComponent(patientId)}`, {
+    headers: { Authorization: `Bearer ${accessToken || ""}` },
+  });
+  const patient = await response.json();
+
+  if (!response.ok) {
+    throw new Error(patient.message || "Unable to load the patient record.");
+  }
+
+  return patient;
 export async function fetchStudentCases() {
   const accessToken = sessionStorage.getItem(
     "careflow-access-token",

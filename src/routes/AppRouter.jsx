@@ -8,6 +8,8 @@ import {
 } from "../lib/navigation";
 import DatabasePlaceholderPage from "../pages/DatabasePlaceholderPage";
 import AdminUserDirectoryPage from "../pages/AdminUserDirectoryPage";
+import AdminPatientsPage from "../pages/AdminPatientsPage";
+import AdminPatientDetailPage from "../pages/AdminPatientDetailPage";
 import DashboardPage from "../pages/DashboardPage";
 import InstructorClassesPage from "../pages/InstructorClassesPage";
 import InstructorOverviewPage from "../pages/InstructorOverviewPage";
@@ -31,6 +33,8 @@ const routesByRole = {
     pages: {
       overview: { path: "/admin", Component: DashboardPage },
       users: { path: "/admin/users", Component: AdminUserDirectoryPage },
+      patients: { path: "/admin/patients", Component: AdminPatientsPage },
+      patientDetail: { path: "/admin/patient", Component: AdminPatientDetailPage },
       settings: { path: "/admin/settings", Component: SettingsPage },
     },
   },

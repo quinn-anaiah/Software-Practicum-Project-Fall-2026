@@ -13,6 +13,7 @@ export const instructorNavigation = [
 export const adminNavigation = [
   { id: "overview", label: "Operations", icon: "grid" },
   { id: "users", label: "Global user search", icon: "patients" },
+  {id: "patients", label: "Patients", icon: "patients" },
 ];
 
 export const patientNavigation = [
