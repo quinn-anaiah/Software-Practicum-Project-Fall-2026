@@ -131,6 +131,39 @@ export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
 
+async function instructorRequest(path, options = {}) {
+  const response = await fetch(`/api/instructor${path}`, {
+    ...options,
+    headers: { ...getAdminHeaders(), ...options.headers },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load instructor data.");
+  return payload;
+}
+
+export function fetchInstructorDashboard() {
+  return instructorRequest("/dashboard");
+}
+
+export function fetchInstructorClassrooms() {
+  return instructorRequest("/classrooms");
+}
+
+export function fetchInstructorClassroom(classroomId) {
+  return instructorRequest(`/classrooms/${classroomId}`);
+}
+
+export function fetchEligibleInstructorStudents() {
+  return instructorRequest("/eligible-students");
+}
+
+export function createInstructorClassroom(classroom) {
+  return instructorRequest("/classrooms", {
+    method: "POST",
+    body: JSON.stringify(classroom),
+  });
+}
+
 export async function fetchStudentCases() {
   const accessToken = sessionStorage.getItem(
     "careflow-access-token",
