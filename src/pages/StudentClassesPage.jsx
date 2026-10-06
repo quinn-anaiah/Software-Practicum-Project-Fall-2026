@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { fetchStudentClasses } from "../lib/api";
+import { useNavigate } from "react-router-dom";
+import Icon from "../components/Icon";
 
 function StudentClassesPage() {
+  const navigate = useNavigate(); 
   const [classes, setClasses] = useState([]);
   const [status, setStatus] = useState("loading");
   const [errorMessage, setErrorMessage] = useState("");
@@ -52,6 +55,7 @@ function StudentClassesPage() {
                   <th>Room</th>
                   <th>Term</th>
                   <th>Group</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -65,6 +69,16 @@ function StudentClassesPage() {
                     <td>{classroom.room || "Not set"}</td>
                     <td>{classroom.term}</td>
                     <td>{classroom.group || "No group yet"}</td>
+                    <td>
+                        <button
+                            aria-label={`Open ${classroom.full_name}`}
+                            className="row-action"
+                            onClick={() => navigate(`/student/class?id=${classroom.id}`)}
+                            type="button"
+                        >
+                            <Icon name="arrow" size={16} />
+                        </button>
+                        </td>
                   </tr>
                 ))}
               </tbody>
