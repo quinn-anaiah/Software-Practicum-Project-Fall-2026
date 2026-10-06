@@ -622,4 +622,151 @@ studentRouter.get("/classes", async (request, response) => {
   );
 });
 
+studentRouter.get("/classes/:classroomId", async (request, response) => {
+  const authorization = request.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return response.status(401).json({ message: "Authentication required." });
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(authorization.slice(7));
+
+  if (authError || !user) {
+    return response.status(401).json({ message: "Invalid or expired session." });
+  }
+
+  const { classroomId } = request.params;
+  const supabaseAdmin = getSupabaseAdmin();
+
+  // Only enrolled students may see a class.
+  const { data: enrollment, error: enrollmentError } = await supabaseAdmin
+    .schema("school")
+    .from("classroom_enrollments")
+    .select("status, enrolled_at")
+    .eq("classroom_id", classroomId)
+    .eq("student_id", user.id)
+    .maybeSingle();
+
+  if (enrollmentError) {
+    console.error("Unable to check enrollment:", enrollmentError.message);
+    return response.status(500).json({ message: "Unable to load this class." });
+  }
+
+  if (!enrollment) {
+    return response.status(403).json({ message: "You are not enrolled in this class." });
+  }
+
+  const [classroomResult, instructorLinksResult, membershipResult] =
+    await Promise.all([
+      supabaseAdmin
+        .schema("school")
+        .from("classrooms")
+        .select("id, crn, full_name, short_name, room, term, status, discipline_subrole_id")
+        .eq("id", classroomId)
+        .single(),
+      supabaseAdmin
+        .schema("school")
+        .from("classroom_instructors")
+        .select("instructor_id")
+        .eq("classroom_id", classroomId),
+      supabaseAdmin
+        .schema("school")
+        .from("classroom_group_members")
+        .select("group_id")
+        .eq("classroom_id", classroomId)
+        .eq("student_id", user.id),
+    ]);
+
+  const firstError =
+    classroomResult.error || instructorLinksResult.error || membershipResult.error;
+  if (firstError) {
+    console.error("Unable to load class detail:", firstError.message);
+    return response.status(500).json({ message: "Unable to load this class." });
+  }
+
+  // Discipline name (Pharmacy, Physical Therapy, ...) from public.subroles.
+  const { data: subrole } = await supabaseAdmin
+    .from("subroles")
+    .select("name")
+    .eq("id", classroomResult.data.discipline_subrole_id)
+    .maybeSingle();
+
+  let group = null;
+  let mateIds = [];
+  const groupId = membershipResult.data[0]?.group_id;
+
+  if (groupId) {
+    const [groupResult, matesResult] = await Promise.all([
+      supabaseAdmin
+        .schema("school")
+        .from("classroom_groups")
+        .select("id, name")
+        .eq("id", groupId)
+        .single(),
+      supabaseAdmin
+        .schema("school")
+        .from("classroom_group_members")
+        .select("student_id")
+        .eq("group_id", groupId)
+        .neq("student_id", user.id),
+    ]);
+
+    if (groupResult.error || matesResult.error) {
+      console.error(
+        "Unable to load group:",
+        groupResult.error?.message || matesResult.error?.message,
+      );
+      return response.status(500).json({ message: "Unable to load this class." });
+    }
+
+    group = groupResult.data;
+    mateIds = matesResult.data.map((row) => row.student_id);
+  }
+
+  const instructorIds = instructorLinksResult.data.map((row) => row.instructor_id);
+  const profileIds = [...new Set([...instructorIds, ...mateIds])];
+  let profileNames = new Map();
+
+  if (profileIds.length) {
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, first_name, last_name")
+      .in("id", profileIds);
+
+    if (profilesError) {
+      console.error("Unable to load names:", profilesError.message);
+      return response.status(500).json({ message: "Unable to load this class." });
+    }
+
+    profileNames = new Map(
+      profiles.map((profile) => [
+        profile.id,
+        `${profile.first_name} ${profile.last_name}`.trim(),
+      ]),
+    );
+  }
+
+  return response.json({
+    id: classroomResult.data.id,
+    crn: classroomResult.data.crn,
+    full_name: classroomResult.data.full_name,
+    short_name: classroomResult.data.short_name,
+    room: classroomResult.data.room,
+    term: classroomResult.data.term,
+    status: classroomResult.data.status,
+    discipline: subrole?.name || null,
+    enrollmentStatus: enrollment.status,
+    enrolledAt: enrollment.enrolled_at,
+    instructors: instructorIds.map((id) => profileNames.get(id)).filter(Boolean),
+    group: group
+      ? {
+          name: group.name,
+          teammates: mateIds.map((id) => profileNames.get(id)).filter(Boolean),
+        }
+      : null,
+  });
+});
 export default studentRouter;
