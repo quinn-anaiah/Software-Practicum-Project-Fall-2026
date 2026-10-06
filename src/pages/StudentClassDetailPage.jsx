@@ -3,6 +3,15 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { fetchStudentClass } from "../lib/api";
 
+function Fact({ label, value }) {
+  return (
+    <div className="class-fact">
+      <span className="class-fact__label">{label}</span>
+      <strong className="class-fact__value">{value}</strong>
+    </div>
+  );
+}
+
 function StudentClassDetailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -51,7 +60,7 @@ function StudentClassDetailPage() {
           )}
         </div>
         <button
-          className="secondary-button"
+          className="secondary-button back-button"
           onClick={() => navigate("/student/classes")}
           type="button"
         >
@@ -72,66 +81,60 @@ function StudentClassDetailPage() {
       )}
 
       {status === "ready" && classroom && (
-        <>
-          <section className="panel data-panel">
-            <dl className="detail-list">
-              <div>
-                <dt>Discipline</dt>
-                <dd>{classroom.discipline || "Not set"}</dd>
-              </div>
-              <div>
-                <dt>CRN</dt>
-                <dd>{classroom.crn}</dd>
-              </div>
-              <div>
-                <dt>Room</dt>
-                <dd>{classroom.room || "Not set"}</dd>
-              </div>
-              <div>
-                <dt>Term</dt>
-                <dd>{classroom.term}</dd>
-              </div>
-              <div>
-                <dt>Instructor</dt>
-                <dd>
-                  {classroom.instructors.length
-                    ? classroom.instructors.join(", ")
-                    : "Not assigned"}
-                </dd>
-              </div>
-              <div>
-                <dt>Enrolled since</dt>
-                <dd>
-                  {classroom.enrolledAt
-                    ? new Date(classroom.enrolledAt).toLocaleDateString()
-                    : "Not available"}
-                </dd>
-              </div>
-              <div>
-                <dt>Your group</dt>
-                <dd>{classroom.group ? classroom.group.name : "No group yet"}</dd>
-              </div>
-              <div>
-                <dt>Groupmates</dt>
-                <dd>
-                  {classroom.group?.teammates.length
-                    ? classroom.group.teammates.join(", ")
-                    : "None yet"}
-                </dd>
-              </div>
-            </dl>
-          </section>
+        <div className="class-detail">
+            <section className="class-detail__facts">
+            <Fact label="Discipline" value={classroom.discipline || "Not set"} />
+            <Fact label="CRN" value={classroom.crn} />
+            <Fact label="Room" value={classroom.room || "Not set"} />
+            <Fact label="Term" value={classroom.term} />
+            </section>
 
-          <section className="panel data-panel">
+            <section className="class-detail__columns">
+            <article className="panel class-detail__card">
+                <p className="section-label">Instructor</p>
+                {classroom.instructors.length ? (
+                <ul className="class-chips">
+                    {classroom.instructors.map((name) => (
+                    <li key={name}>{name}</li>
+                    ))}
+                </ul>
+                ) : (
+                <p className="class-detail__note">Not assigned yet.</p>
+                )}
+                <p className="class-detail__note">
+                Enrolled since{" "}
+                {classroom.enrolledAt
+                    ? new Date(classroom.enrolledAt).toLocaleDateString()
+                    : "an unknown date"}
+                </p>
+            </article>
+
+            <article className="panel class-detail__card">
+                <p className="section-label">Your group</p>
+                <h2>{classroom.group ? classroom.group.name : "No group yet"}</h2>
+                {classroom.group &&
+                (classroom.group.teammates.length ? (
+                    <ul className="class-chips">
+                    {classroom.group.teammates.map((name) => (
+                        <li key={name}>{name}</li>
+                    ))}
+                    </ul>
+                ) : (
+                    <p className="class-detail__note">You are the only member so far.</p>
+                ))}
+            </article>
+            </section>
+
+            <section className="panel class-detail__card">
             <p className="section-label">Cases</p>
             <h2>Cases for this class</h2>
-            <p>
-              Cases assigned in this class will appear here once they are linked
-              to the class.
+            <p className="class-detail__note">
+                Cases assigned in this class will appear here once they are linked to
+                the class.
             </p>
-          </section>
-        </>
-      )}
+            </section>
+        </div>
+        )}
     </div>
   );
 }
