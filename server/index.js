@@ -4,6 +4,7 @@ import authRouter from "./routes/auth.js";
 import rolesRouter from "./routes/roles.js";
 import casesRouter from "./routes/cases.js";
 import studentRouter from "./routes/student.js";
+import instructorRouter from "./routes/instructor.js";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -14,6 +15,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/roles", rolesRouter);
 app.use("/api/cases", casesRouter);
 app.use("/api/student", studentRouter);
+app.use("/api/instructor", instructorRouter);
 app.use("/api", authRouter);
 
 app.listen(port, () => {

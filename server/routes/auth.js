@@ -1,7 +1,11 @@
 import { Router } from "express";
-import { supabase } from "../services/supabase.js";
+import { getSupabaseAdmin, supabase } from "../services/supabase.js";
 
 const authRouter = Router();
+
+function relationName(relation) {
+  return Array.isArray(relation) ? relation[0]?.name : relation?.name;
+}
 
 authRouter.post("/login", async (request, response) => {
   const { email, password } = request.body;
@@ -12,22 +16,15 @@ authRouter.post("/login", async (request, response) => {
     password,
   });
 
-  
-  console.log("--- SUPABASE AUTH RESPONSE ---");
-  console.log("Auth Error:", authError);
-  console.log("Auth Data (Session/User):", authData);
-
-
   if (authError || !authData.user) {
     return response.status(401).json({ message: "Invalid email or password." });
   }
 
   const userId = authData.user.id;
-  console.log("User Id:", userId)
-
-
-  // get user profile from profile tables
-  const { data: profileData, error: profileError } = await supabase
+  // Load the user profile through the server-only client. This prevents
+  // profile relationships from being hidden by browser-facing RLS policies.
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data: profileData, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select(`
       id,
@@ -40,11 +37,6 @@ authRouter.post("/login", async (request, response) => {
     `)
     .eq("id", userId)
     .single();
-
-  
-  console.log("--- SUPABASE PROFILE FETCH ---");
-  console.log("Profile Error:", profileError);
-  console.log("Profile Data:", profileData);
 
   if (profileError || !profileData) {
     return response.status(500).json({ message: "User authenticated, but profile not found." });
@@ -60,13 +52,11 @@ authRouter.post("/login", async (request, response) => {
     email: authData.user.email,
     firstName: firstName,
     lastName: lastName,
-    role: profileData.roles?.name,
+    role: relationName(profileData.roles),
     name: fullName,        
     initials: initials,    
-    subrole: profileData.subroles?.name,
+    subrole: relationName(profileData.subroles),
   };
-
-  console.log("--- FORMATTED USER SENT TO FRONTEND ---", formattedUser);
 
   return response.json({
     ...formattedUser,

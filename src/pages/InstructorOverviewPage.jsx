@@ -1,7 +1,32 @@
-import { instructorOverviewPreview } from "../lib/instructorPreviewData";
+import { useEffect, useState } from "react";
+import { fetchInstructorDashboard } from "../lib/api";
 
 function InstructorOverviewPage({ user }) {
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isCurrent = true;
+    async function loadDashboard() {
+      try {
+        const result = await fetchInstructorDashboard();
+        if (isCurrent) setDashboard(result);
+      } catch (loadError) {
+        if (isCurrent) setError(loadError instanceof Error ? loadError.message : "Unable to load dashboard.");
+      }
+    }
+    loadDashboard();
+    return () => { isCurrent = false; };
+  }, []);
+
   const firstName = user.name.split(" ")[0];
+  const metrics = dashboard
+    ? [
+        { label: "Assigned learners", value: dashboard.metrics.learners, note: `Across ${dashboard.classrooms.length} classrooms`, tone: "indigo" },
+        { label: "Active classrooms", value: dashboard.metrics.activeClassrooms, note: `${dashboard.discipline} discipline`, tone: "teal" },
+        { label: "Draft classrooms", value: dashboard.metrics.draftClassrooms, note: "Ready to continue setting up", tone: "amber" },
+      ]
+    : [];
 
   return (
     <div className="dashboard-page content-page instructor-workspace">
@@ -9,73 +34,58 @@ function InstructorOverviewPage({ user }) {
         <div>
           <p className="section-label">Instructor workspace · overview</p>
           <h1>Good afternoon, {firstName}</h1>
-          <p>Keep a pulse on your classrooms, learner progress, and the work that needs your attention.</p>
+          <p>Keep a pulse on your classrooms and their matching-discipline learners.</p>
         </div>
       </section>
 
-      <section className="instructor-overview-metrics">
-        {instructorOverviewPreview.metrics.map((metric) => (
-          <article className={`panel instructor-overview-metric instructor-overview-metric--${metric.tone}`} key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-            <small>{metric.note}</small>
-          </article>
-        ))}
-      </section>
+      {error && <section className="panel directory-error">{error}</section>}
+      {!dashboard && !error && <section className="panel directory-loading">Loading your instructor workspace…</section>}
 
-      <section className="instructor-overview-grid">
-        <article className="panel classroom-health-panel">
-          <div className="panel__header">
-            <div>
-              <p className="section-label">Your classrooms</p>
-              <h2>Classroom activity</h2>
-            </div>
-            <span className="preview-label">Preview data</span>
-          </div>
-          <div className="classroom-health-list">
-            {instructorOverviewPreview.classrooms.map((classroom) => (
-              <article key={classroom.name}>
-                <div className="classroom-health-list__heading">
-                  <div>
-                    <h3>{classroom.name}</h3>
-                    <p>{classroom.learners} learners · {classroom.groups} groups · {classroom.activeCases} active cases</p>
-                  </div>
-                  <span>{classroom.next}</span>
-                </div>
-                <div className="progress-track"><b style={{ width: `${classroom.progress}%` }} /></div>
-                <small>{classroom.progress}% of current work completed</small>
+      {dashboard && (
+        <>
+          <section className="instructor-overview-metrics">
+            {metrics.map((metric) => (
+              <article className={`panel instructor-overview-metric instructor-overview-metric--${metric.tone}`} key={metric.label}>
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+                <small>{metric.note}</small>
               </article>
             ))}
-          </div>
-        </article>
+          </section>
 
-        <article className="panel review-queue-panel">
-          <div className="panel__header">
-            <div>
-              <p className="section-label">Review queue</p>
-              <h2>Needs your attention</h2>
-            </div>
-            <span className="queue-count">6</span>
-          </div>
-          {instructorOverviewPreview.reviewQueue.map((item) => (
-            <div className="instructor-review-item" key={`${item.learner}-${item.item}`}>
-              <span>{item.learner.split(" ").map((name) => name[0]).join("")}</span>
-              <div><h3>{item.learner}</h3><p>{item.item} · {item.classroom}</p></div>
-              <small>{item.status}</small>
-            </div>
-          ))}
-          <button className="secondary-button" type="button">Open review queue</button>
-        </article>
-      </section>
+          <section className="instructor-overview-grid">
+            <article className="panel classroom-health-panel">
+              <div className="panel__header">
+                <div><p className="section-label">Your classrooms</p><h2>Classroom activity</h2></div>
+                <span className="directory-live-indicator">● Live database</span>
+              </div>
+              {dashboard.classrooms.length ? (
+                <div className="classroom-health-list">
+                  {dashboard.classrooms.map((classroom) => (
+                    <article key={classroom.id}>
+                      <div className="classroom-health-list__heading">
+                        <div><h3>{classroom.full_name}</h3><p>{classroom.short_name} · CRN {classroom.crn} · {classroom.room || "Room unassigned"}</p></div>
+                        <span>{classroom.status}</span>
+                      </div>
+                      <div className="classroom-stat-line"><span>{classroom.learnerCount} learners</span><span>{classroom.groupCount} groups</span><span>{classroom.term}</span></div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="directory-loading">No classrooms have been created for your discipline yet.</p>
+              )}
+            </article>
 
-      <section className="instructor-next-step">
-        <div>
-          <p className="section-label">Next step</p>
-          <h2>Set up your next clinical learning experience.</h2>
-          <p>Use Classes to organize learners into groups, then assign a scenario to the whole classroom, a group, or an individual learner.</p>
-        </div>
-        <span>01</span>
-      </section>
+            <article className="panel review-queue-panel">
+              <div className="panel__header"><div><p className="section-label">Teaching scope</p><h2>{dashboard.discipline}</h2></div></div>
+              <p className="assignment-builder__copy">New classrooms automatically use your Instructor subrole. The roster accepts only Students with this same subrole.</p>
+              <div className="scope-rule"><strong>Instructor</strong><span>{dashboard.discipline}</span></div>
+              <div className="scope-rule"><strong>Eligible students</strong><span>{dashboard.discipline}</span></div>
+              <p className="account-detail__note">Scenario reviews will appear here after case-assignment tables are added.</p>
+            </article>
+          </section>
+        </>
+      )}
     </div>
   );
 }
