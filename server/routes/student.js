@@ -533,4 +533,93 @@ studentRouter.get(
   },
 );
 
+studentRouter.get("/classes", async (request, response) => {
+  const authorization = request.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return response.status(401).json({ message: "Authentication required." });
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(authorization.slice(7));
+
+  if (authError || !user) {
+    return response.status(401).json({ message: "Invalid or expired session." });
+  }
+
+  const supabaseAdmin = getSupabaseAdmin();
+
+  const { data: enrollments, error: enrollmentsError } = await supabaseAdmin
+    .schema("school")
+    .from("classroom_enrollments")
+    .select("classroom_id, status, enrolled_at")
+    .eq("student_id", user.id);
+
+  if (enrollmentsError) {
+    console.error("Unable to load enrollments:", enrollmentsError.message);
+    return response.status(500).json({ message: "Unable to load your classes." });
+  }
+
+  if (!enrollments.length) return response.json([]);
+
+  const classroomIds = enrollments.map((row) => row.classroom_id);
+
+  const [classroomsResult, membershipsResult] = await Promise.all([
+    supabaseAdmin
+      .schema("school")
+      .from("classrooms")
+      .select("id, crn, full_name, short_name, room, term, status")
+      .in("id", classroomIds),
+    supabaseAdmin
+      .schema("school")
+      .from("classroom_group_members")
+      .select("group_id, classroom_id")
+      .eq("student_id", user.id)
+      .in("classroom_id", classroomIds),
+  ]);
+
+  if (classroomsResult.error || membershipsResult.error) {
+    console.error(
+      "Unable to load classes:",
+      classroomsResult.error?.message || membershipsResult.error?.message,
+    );
+    return response.status(500).json({ message: "Unable to load your classes." });
+  }
+
+  const memberships = membershipsResult.data;
+  let groups = [];
+
+  if (memberships.length) {
+    const { data, error } = await supabaseAdmin
+      .schema("school")
+      .from("classroom_groups")
+      .select("id, name")
+      .in("id", memberships.map((row) => row.group_id));
+
+    if (error) {
+      console.error("Unable to load groups:", error.message);
+      return response.status(500).json({ message: "Unable to load your classes." });
+    }
+    groups = data;
+  }
+
+  const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
+  const groupByClassroom = new Map(
+    memberships.map((row) => [row.classroom_id, groupNameById.get(row.group_id) || null]),
+  );
+  const enrollmentByClassroom = new Map(
+    enrollments.map((row) => [row.classroom_id, row]),
+  );
+
+  return response.json(
+    classroomsResult.data.map((classroom) => ({
+      ...classroom,
+      enrollmentStatus: enrollmentByClassroom.get(classroom.id)?.status ?? null,
+      group: groupByClassroom.get(classroom.id) || null,
+    })),
+  );
+});
+
 export default studentRouter;

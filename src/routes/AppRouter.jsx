@@ -22,6 +22,7 @@ import StudentCaseDetailsPage from "../pages/StudentCaseDetailsPage";
 import StudentNoteFormPage from "../pages/StudentNoteFormPage";
 import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
 import StudentSubmissionPage from "../pages/StudentSubmissionPage";
+import StudentClassesPage from "../pages/StudentClassesPage";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -117,6 +118,7 @@ const routesByRole = {
     navigation: studentNavigation,
     pages: {
       overview: { path: "/student", Component: StudentOverviewPage },
+      classes: { path: "/student/classes", Component: StudentClassesPage },
       caseDetail: {
         path: "/student/case",
         Component: StudentCaseDetailsPage,
