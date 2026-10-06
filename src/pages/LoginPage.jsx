@@ -93,7 +93,7 @@ async function handleSubmit(event) {
               Christian Revilla<br></br>
               Derek Gamboa<br></br>
               Francisco Vazquez<br></br>
-              Scrum Master Sprint1: Jazmin Huerta
+              Jazmin Huerta
             </p>
           </div>
         </div>
@@ -143,11 +143,15 @@ async function handleSubmit(event) {
             <span>Student: javier.lopez@careflow.test</span>
             <span>Password: Student123</span>
             <hr></hr>
+            <span>Student: Bart.Simpson@careflow.test</span>
+            <span>Password: Bart1234</span>
+            <hr></hr>
             <span>Instructor: dr.rivera@careflow.test</span>
             <span>Password: Careflow2026!</span>
             <hr></hr>
             <span>Patient: morgan.lee@careflow.test</span>
             <span>Password: Patient123</span>
+            <hr></hr>
             <span>Patient: avery.morgan@careflow.test</span>
             <span>Password: Admin123</span>
           </div>
