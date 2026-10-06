@@ -68,7 +68,10 @@ authRouter.post("/login", async (request, response) => {
 
   console.log("--- FORMATTED USER SENT TO FRONTEND ---", formattedUser);
 
-  return response.json({ ...formattedUser, accessToken: authData.session.access_token});
+  return response.json({
+    ...formattedUser,
+    accessToken: authData.session.access_token,
+  });
 });
 
 export default authRouter;
