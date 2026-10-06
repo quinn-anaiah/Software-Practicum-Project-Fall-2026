@@ -16,6 +16,7 @@ function formatProfile(profile) {
     id: profile.id,
     name: `${profile.first_name || ""} ${profile.last_name || ""}`.trim(),
     subrole: relationName(profile.subroles) || null,
+    utepId: profile.utep_id || null,
   };
 }
 
@@ -119,7 +120,7 @@ async function eligibleStudents(supabaseAdmin, subroleId) {
 
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("id, first_name, last_name, subroles(name)")
+    .select("id, first_name, last_name, utep_id, subroles(name)")
     .eq("role_id", studentRole.id)
     .eq("sub_role_id", subroleId)
     .order("last_name");
@@ -221,16 +222,91 @@ instructorRouter.get("/classrooms/:classroomId", async (request, response) => {
     const enrolledIds = (enrollments || []).map((enrollment) => enrollment.student_id);
     const enrolled = eligible.filter((student) => enrolledIds.includes(student.id));
     const availableStudents = eligible.filter((student) => !enrolledIds.includes(student.id));
+    const groupIds = (groups || []).map((group) => group.id);
+    const { data: groupMembers, error: groupMemberError } = groupIds.length
+      ? await school
+          .from("classroom_group_members")
+          .select("group_id, student_id")
+          .in("group_id", groupIds)
+      : { data: [], error: null };
+    if (groupMemberError) throw groupMemberError;
+    const studentsById = new Map(enrolled.map((student) => [student.id, student]));
+    const membersByGroup = (groupMembers || []).reduce((members, member) => {
+      const group = members.get(member.group_id) || [];
+      const student = studentsById.get(member.student_id);
+      if (student) group.push(student);
+      members.set(member.group_id, group);
+      return members;
+    }, new Map());
+
     return response.json({
       classroom: { ...access.classroom, discipline: relationName(context.profile.subroles) },
       accessLevel: access.accessLevel,
       students: enrolled,
       availableStudents,
-      groups: groups || [],
+      groups: (groups || []).map((group) => ({
+        ...group,
+        students: membersByGroup.get(group.id) || [],
+      })),
     });
   } catch (error) {
     console.error("Unable to load classroom:", error);
     return response.status(500).json({ message: "Unable to load this classroom." });
+  }
+});
+
+instructorRouter.post("/classrooms/:classroomId/groups", async (request, response) => {
+  const name = String(request.body.name || "").trim();
+  const studentIds = [...new Set(Array.isArray(request.body.studentIds) ? request.body.studentIds : [])];
+  if (!name || !studentIds.length) {
+    return response.status(400).json({ message: "Enter a group name and select at least one enrolled student." });
+  }
+
+  try {
+    const context = await requireInstructor(request, response);
+    if (!context) return;
+    const access = await verifyClassroomAccess(
+      context.supabaseAdmin,
+      context.profile,
+      request.params.classroomId,
+    );
+    if (!access) return response.status(404).json({ message: "Classroom not found." });
+
+    const school = context.supabaseAdmin.schema("school");
+    const { data: enrollments, error: enrollmentError } = await school
+      .from("classroom_enrollments")
+      .select("student_id")
+      .eq("classroom_id", access.classroom.id)
+      .eq("status", "active");
+    if (enrollmentError) throw enrollmentError;
+    const enrolledIds = new Set((enrollments || []).map((enrollment) => enrollment.student_id));
+    if (!studentIds.every((studentId) => enrolledIds.has(studentId))) {
+      return response.status(400).json({ message: "Groups may contain only students enrolled in this classroom." });
+    }
+
+    const { data: group, error: groupError } = await school
+      .from("classroom_groups")
+      .insert({ classroom_id: access.classroom.id, name })
+      .select("id, name")
+      .single();
+    if (groupError) return response.status(400).json({ message: groupError.message });
+
+    const { error: memberError } = await school.from("classroom_group_members").insert(
+      studentIds.map((studentId) => ({
+        group_id: group.id,
+        classroom_id: access.classroom.id,
+        student_id: studentId,
+      })),
+    );
+    if (memberError) {
+      await school.from("classroom_groups").delete().eq("id", group.id);
+      throw memberError;
+    }
+
+    return response.status(201).json({ message: `${name} has been created.`, group });
+  } catch (error) {
+    console.error("Unable to create classroom group:", error);
+    return response.status(500).json({ message: "Unable to create this group." });
   }
 });
 

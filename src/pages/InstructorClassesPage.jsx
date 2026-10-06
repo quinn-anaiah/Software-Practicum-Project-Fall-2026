@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   createInstructorClassroom,
+  createInstructorClassroomGroup,
   fetchEligibleInstructorStudents,
   fetchInstructorClassroom,
   fetchInstructorClassrooms,
@@ -22,6 +23,9 @@ function InstructorClassesPage({ user }) {
   const [form, setForm] = useState(emptyForm);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isGroupOpen, setIsGroupOpen] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [selectedGroupStudentIds, setSelectedGroupStudentIds] = useState([]);
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -104,6 +108,38 @@ function InstructorClassesPage({ user }) {
       setNotice(result.message);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create classroom.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function toggleGroupStudent(studentId) {
+    setSelectedGroupStudentIds((current) =>
+      current.includes(studentId)
+        ? current.filter((id) => id !== studentId)
+        : [...current, studentId],
+    );
+  }
+
+  async function handleCreateGroup(event) {
+    event.preventDefault();
+    if (!classroomId) return;
+    setError("");
+    setNotice("");
+    setIsSaving(true);
+    try {
+      const result = await createInstructorClassroomGroup(classroomId, {
+        name: groupName,
+        studentIds: selectedGroupStudentIds,
+      });
+      const refreshedDetail = await fetchInstructorClassroom(classroomId);
+      setClassroomDetail(refreshedDetail);
+      setGroupName("");
+      setSelectedGroupStudentIds([]);
+      setIsGroupOpen(false);
+      setNotice(result.message);
+    } catch (groupError) {
+      setError(groupError instanceof Error ? groupError.message : "Unable to create group.");
     } finally {
       setIsSaving(false);
     }
@@ -216,12 +252,28 @@ function InstructorClassesPage({ user }) {
             <article className="panel classroom-roster-panel">
               <div className="panel__header">
                 <div><p className="section-label">Roster · {classroom.discipline}</p><h2>Enrolled learners</h2></div>
-                <span className="preview-label">{classroomDetail.students.length} active</span>
+                <div className="panel__header-actions">
+                  <span className="preview-label">{classroomDetail.students.length} active</span>
+                  <button className="secondary-button" disabled={!classroomDetail.students.length} onClick={() => setIsGroupOpen(true)} type="button">Create group</button>
+                </div>
               </div>
-              <div className="learner-chip-list">
-                {classroomDetail.students.map((student) => <span key={student.id}>{student.name}</span>)}
-                {!classroomDetail.students.length && <span>No learners added yet</span>}
-              </div>
+              {classroomDetail.students.length ? (
+                <div className="enrolled-student-list">
+                  {classroomDetail.students.map((student) => {
+                    const groupNames = classroomDetail.groups
+                      .filter((group) => group.students.some((member) => member.id === student.id))
+                      .map((group) => group.name);
+                    return (
+                      <div key={student.id}>
+                        <span>{student.name.split(" ").map((part) => part[0]).join("")}</span>
+                        <div><strong>{student.name}</strong><small>{student.utepId ? `UTEP ID ${student.utepId}` : "UTEP ID not provided"}</small></div>
+                        <em>{student.subrole}</em>
+                        <b>{groupNames.length ? groupNames.join(", ") : "Not grouped"}</b>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <p className="directory-loading">No learners have been enrolled yet.</p>}
             </article>
             <article className="panel assignment-builder">
               <p className="section-label">Case assignments</p>
@@ -230,6 +282,55 @@ function InstructorClassesPage({ user }) {
               <button className="secondary-button" disabled type="button">Scenario tools coming next</button>
             </article>
           </section>
+
+          <section className="panel group-overview-panel">
+            <div className="panel__header">
+              <div><p className="section-label">Classroom groups</p><h2>Learning teams</h2></div>
+              <span className="preview-label">{classroomDetail.groups.length} groups</span>
+            </div>
+            {classroomDetail.groups.length ? (
+              <div className="group-overview-list">
+                {classroomDetail.groups.map((group) => (
+                  <article key={group.id}>
+                    <div><span>{group.name.slice(0, 1).toUpperCase()}</span><h3>{group.name}</h3><small>{group.students.length} members</small></div>
+                    <p>{group.students.map((student) => student.name).join(" · ")}</p>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="directory-loading">Create a group to organize your enrolled learners for shared scenarios.</p>}
+          </section>
+
+          {isGroupOpen && (
+            <section className="panel create-class-panel group-creation-panel">
+              <div className="panel__header">
+                <div><p className="section-label">New learning team</p><h2>Create a student group</h2></div>
+                <button aria-label="Close group form" className="row-action" onClick={() => setIsGroupOpen(false)} type="button">×</button>
+              </div>
+              <form className="create-class-form" onSubmit={handleCreateGroup}>
+                <label>
+                  Group name
+                  <input onChange={(event) => setGroupName(event.target.value)} placeholder="e.g. Team Blue" required value={groupName} />
+                </label>
+                <div>
+                  <p className="section-label">Registered students</p>
+                  <p className="create-class-form__hint">Only students enrolled in <strong>{classroom.short_name}</strong> can join this group.</p>
+                  <div className="eligible-learner-list">
+                    {classroomDetail.students.map((student) => (
+                      <label key={student.id}>
+                        <input checked={selectedGroupStudentIds.includes(student.id)} onChange={() => toggleGroupStudent(student.id)} type="checkbox" />
+                        <span>{student.name}</span>
+                        <small>{student.subrole}</small>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="admin-form__actions">
+                  <button className="secondary-button" onClick={() => setIsGroupOpen(false)} type="button">Cancel</button>
+                  <button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Creating…" : "Create group"}</button>
+                </div>
+              </form>
+            </section>
+          )}
         </>
       )}
     </div>
