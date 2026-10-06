@@ -15,10 +15,11 @@ export async function registerUser(registrationData) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(registrationData),
   });
-  const payload = await response.json();
+  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const payload = isJson ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(payload.message || "Unable to create your account.");
+    throw new Error(payload?.message || "Unable to create your account. Check that the API server is running.");
   }
 
   return payload;
