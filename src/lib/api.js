@@ -194,7 +194,6 @@ export async function fetchAdminPatient(patientId) {
 
   return patient;
 }
-
 export async function fetchStudentCases() {
   const accessToken = sessionStorage.getItem(
     "careflow-access-token",
@@ -394,4 +393,5 @@ export async function fetchStudentOrders(assignmentId) {
   }
 
   return payload;
+
 }
