@@ -3374,3 +3374,92 @@ td small {
   width: fit-content;
   justify-self: start;
 }
+/* class details css - jazmin 10/05/2006 */
+.class-detail {
+  display: grid;
+  gap: 20px;
+}
+
+.class-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.class-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #e6e9f2;
+  border-radius: 14px;
+}
+
+.class-fact__label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a94a8;
+}
+
+.class-fact__value {
+  font-size: 1.15rem;
+  color: #1f2a44;
+}
+
+.class-detail__columns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.class-detail__card h2 {
+  margin: 6px 0 14px;
+}
+
+.class-detail__note {
+  margin: 12px 0 0;
+  color: #8a94a8;
+}
+
+.class-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.class-chips li {
+  padding: 6px 14px;
+  font-weight: 500;
+  color: #1f2a44;
+  background: #eef2fb;
+  border-radius: 999px;
+}
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back-button .icon {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 900px) {
+  .class-detail__facts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .class-detail__facts,
+  .class-detail__columns {
+    grid-template-columns: 1fr;
+  }
+}

@@ -33,8 +33,11 @@ Demo accounts
 
 | Role | Email | Password |
 | --- | --- | --- |
+| Admin | `avery.morgan@careflow.test` | `Admin123` |
 | Instructor | `dr.rivera@careflow.test` | `Careflow2026!` |
+| Instructor | `john.doe@careflow.test` | `Instructor123` |
 | Student | `javier.lopez@careflow.test` | `Student123!` |
+| Student | `bart.simpson@careflow.test` | `Bart1234` |
 | Patient | `morgan.lee@careflow.test` | `Welcome123!` |
 
 The sign-in form is initially filled with the instructor credentials but use Log out to switch roles. The selected demo user is stored in browser `sessionStorage` for the current tab session. Other changes such as notes, orders, and classrooms, are held in memory and reset on a page reload.
