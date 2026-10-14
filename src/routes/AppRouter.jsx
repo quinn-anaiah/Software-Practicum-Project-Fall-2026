@@ -24,6 +24,7 @@ import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
 import StudentSubmissionPage from "../pages/StudentSubmissionPage";
 import StudentClassesPage from "../pages/StudentClassesPage";
 import StudentClassDetailPage from "../pages/StudentClassDetailPage";
+import PatientOverviewPage from "../pages/PatientOverviewPage";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -93,7 +94,7 @@ const routesByRole = {
   Patient: {
     navigation: patientNavigation,
     pages: {
-      overview: { path: "/patient", Component: DashboardPage },
+      overview: { path: "/patient", Component: PatientOverviewPage },
       careTeam: placeholder(
         "/patient/care-team",
         "My care team",

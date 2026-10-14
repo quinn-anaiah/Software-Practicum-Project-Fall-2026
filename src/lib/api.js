@@ -448,3 +448,27 @@ export async function fetchStudentClass(classroomId) {
 
   return payload;
 }
+
+export async function fetchPatientDashboard() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+
+  if (!accessToken) {
+    throw new Error("No active session. Please sign in again.");
+  }
+
+  const response = await fetch("/api/patient/dashboard", {
+    headers: {Authorization: `Bearer ${accessToken}`},
+  });
+
+  const payload = await response.json();
+  console.log("payload", payload)
+  console.log("response", response)
+  
+
+  if(!response.ok){
+    throw new Error(payload.message || "Unable to load your patient health dashboard");
+
+  }
+  return payload;
+  
+}
