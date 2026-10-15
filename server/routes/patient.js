@@ -30,16 +30,6 @@ async function requirePatient(request, response) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
-    // const { data: profile, error: profileError } = await supabaseAdmin
-    //     .from("profiles")
-    //     .select("id, first_name, last_name, role_id, sub_role_id, roles(name), subroles(name)")
-    //     .eq("id", authData.user.id)
-    //     .single();
-
-    // if (profileError || relationName(profile?.roles) !== "Patient") {
-    //     response.status(403).json({ message: "Patient access is required." });
-    //     return null;
-    // } might not need actual profile if all deatails oare in auth user 
 
     return { supabaseAdmin: supabaseAdmin, user: authData.user };
 
@@ -54,15 +44,18 @@ patientRouter.get("/dashboard", async (request, response) => {
         const patientId = user.id;
         console.log("Patient Id", user.id)
 
-        const [history, medications, appointments, careTeam, updates] = await Promise.all([
+        const [history, medications, appointments, careTeam, updates, allergies] = await Promise.all([
             supabaseAdmin.schema('patient_portal').from('medical_history').select('*').eq('profile_id', patientId),
             supabaseAdmin.schema('patient_portal').from('medications').select('*').eq('patient_id', patientId),
             supabaseAdmin.schema('patient_portal').from('appointments').select('*').eq('patient_id', patientId),
             supabaseAdmin.schema('patient_portal').from('care_team').select('*').eq('patient_id', patientId),
-            supabaseAdmin.schema('patient_portal').from('clinical_updates').select('*').eq('patient_id', patientId)
+            supabaseAdmin.schema('patient_portal').from('clinical_updates').select('*').eq('patient_id', patientId),
+            supabaseAdmin.schema('patient_portal').from('allergies').select('*').eq('profile_id', patientId)
         ]);
 
         console.log("History", history)
+        console.log("CareTeam", careTeam)
+        console.log("Allergies", allergies)
 
         return response.json({
             metrics: {
@@ -74,13 +67,77 @@ patientRouter.get("/dashboard", async (request, response) => {
             medications: medications.data || [],
             appointments: appointments.data || [],
             careTeam: careTeam.data || [],
-            clinicalUpdates: updates.data || []
+            clinicalUpdates: updates.data || [],
+            allergies: allergies.data || []
         });
     } catch (error) {
         console.error("Unable to load patient overview:", error);
         return response.status(500).json({ message: "Unable to load patient dashboard." });
     }
 
+});
+
+patientRouter.get("/care-team", async (request, response) => {
+  try {
+    const authContext = await requirePatient(request, response);
+    if (!authContext) return;
+
+    const { supabaseAdmin, user } = authContext;
+    const patientId = user.id;
+
+    //  care team entries for the patient
+    const { data: careTeamRows, error: careTeamError } = await supabaseAdmin
+      .schema('patient_portal')
+      .from("care_team")
+      .select("id, patient_id, provider_id, subrole_id, is_primary, created_at")
+      .eq("patient_id", patientId);
+
+    if (careTeamError) {
+      console.error("Unable to load care team:", careTeamError.message);
+      return response.status(500).json({ message: "Unable to load care team." });
+    }
+
+    if (!careTeamRows || careTeamRows.length === 0) {
+      return response.json([]);
+    }
+
+
+    const enrichedCareTeam = await Promise.all(
+      careTeamRows.map(async (member) => {
+        let providerData = null;
+        let subroleData = null;
+
+        if (member.provider_id) {
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("id, first_name, last_name, careflow_id")
+            .eq("id", member.provider_id)
+            .single();
+          providerData = profile;
+        }
+
+        if (member.subrole_id) {
+          const { data: subrole } = await supabaseAdmin
+            .from("subroles")
+            .select("id, name")
+            .eq("id", member.subrole_id)
+            .single();
+          subroleData = subrole;
+        }
+
+        return {
+          ...member,
+          provider: providerData,
+          subrole: subroleData
+        };
+      })
+    );
+
+    return response.json(enrichedCareTeam);
+  } catch (error) {
+    console.error("Unable to load care team route:", error);
+    return response.status(500).json({ message: "Unable to load care team." });
+  }
 });
 
 export default patientRouter;

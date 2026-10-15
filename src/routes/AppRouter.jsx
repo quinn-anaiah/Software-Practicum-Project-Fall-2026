@@ -25,6 +25,8 @@ import StudentSubmissionPage from "../pages/StudentSubmissionPage";
 import StudentClassesPage from "../pages/StudentClassesPage";
 import StudentClassDetailPage from "../pages/StudentClassDetailPage";
 import PatientOverviewPage from "../pages/PatientOverviewPage";
+import PatientCareTeamPage from "../pages/PatientCareTeamPage";
+import { Component } from "react";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -95,12 +97,7 @@ const routesByRole = {
     navigation: patientNavigation,
     pages: {
       overview: { path: "/patient", Component: PatientOverviewPage },
-      careTeam: placeholder(
-        "/patient/care-team",
-        "My care team",
-        "No care team is assigned yet",
-        "Your providers and support contacts will appear here after they are assigned.",
-      ),
+      careTeam: { path: "/patient/care-team", Component: PatientCareTeamPage},
       appointments: placeholder(
         "/patient/appointments",
         "My schedule",

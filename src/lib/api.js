@@ -472,3 +472,19 @@ export async function fetchPatientDashboard() {
   return payload;
   
 }
+
+export async function fetchPatientCareTeam() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  if (!accessToken) throw new Error("No active session. Please sign in again.");
+
+  const response = await fetch("/api/patient/care-team", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.message || "Unable to load your care team.");
+  }
+
+  return payload;
+}
