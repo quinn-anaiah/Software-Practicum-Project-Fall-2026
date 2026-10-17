@@ -221,6 +221,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
           {[
             ["case", "Case Information"],
             ["notes", "Notes"],
+            ["orders", "Orders"],
             ["review", "Review & Submit"],
           ].map(([id, label]) => (
             <button
@@ -333,6 +334,37 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
           {!encounterInProgress && (
             <p className="case-help-text">
               Start the encounter before editing clinical notes.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ORDERS */}
+      {activeTab === "orders" && (
+        <section className="panel data-panel case-section">
+          <div className="case-section-heading">
+            <div>
+              <h2>Orders</h2>
+              <p>
+                Create and manage orders for this patient encounter.
+              </p>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button
+              className="primary-button"
+              type="button"
+              disabled={!encounterInProgress}
+              onClick={() => navigateTo("orderEntry")}
+            >
+              Manage Orders
+            </button>
+          </div>
+
+          {!encounterInProgress && (
+            <p className="case-help-text">
+              Start the encounter before managing orders.
             </p>
           )}
         </section>

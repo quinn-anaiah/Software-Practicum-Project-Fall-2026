@@ -464,4 +464,306 @@ instructorRouter.post("/classrooms", async (request, response) => {
   }
 });
 
+async function getReviewAssignment(admin, profile, assignmentId) {
+  const learning = admin.schema("learning");
+  const school = admin.schema("school");
+
+  const { data: assignment, error: assignmentError } =
+    await learning
+      .from("student_case_assignments")
+      .select("id, student_id, case_id")
+      .eq("id", assignmentId)
+      .maybeSingle();
+
+  if (assignmentError) throw assignmentError;
+  if (!assignment) return null;
+
+  const { data: memberships, error: membershipsError } =
+    await school
+      .from("classroom_instructors")
+      .select("classroom_id")
+      .eq("instructor_id", profile.id);
+
+  if (membershipsError) throw membershipsError;
+
+  const classroomIds = (memberships || []).map(
+    (row) => row.classroom_id
+  );
+
+  if (!classroomIds.length) return null;
+
+  const { data: classrooms, error: classroomsError } =
+    await school
+      .from("classrooms")
+      .select("id")
+      .in("id", classroomIds)
+      .eq("discipline_subrole_id", profile.sub_role_id);
+
+  if (classroomsError) throw classroomsError;
+
+  const allowedClassroomIds = (classrooms || []).map(
+    (row) => row.id
+  );
+
+  if (!allowedClassroomIds.length) return null;
+
+  const { data: enrollments, error: enrollmentError } =
+    await school
+      .from("classroom_enrollments")
+      .select("classroom_id")
+      .eq("student_id", assignment.student_id)
+      .eq("status", "active")
+      .in("classroom_id", allowedClassroomIds)
+      .limit(1);
+
+  if (enrollmentError) throw enrollmentError;
+  if (!enrollments?.length) return null;
+
+  return assignment;
+}
+
+
+instructorRouter.get("/submissions", async (request, response) => {
+  try {
+    const context = await requireInstructor(request, response);
+    if (!context) return;
+
+    const { supabaseAdmin: admin, profile } = context;
+
+    const { data: notes, error: notesError } =
+      await admin
+        .schema("learning")
+        .from("notes")
+        .select("id, assignment_id, note_type, status, updated_at")
+        .in("status", ["Pending Review", "Approved", "Returned"])
+        .order("updated_at", { ascending: false });
+
+    if (notesError) throw notesError;
+
+    const submissions = [];
+
+    for (const note of notes || []) {
+      const assignment = await getReviewAssignment(
+        admin,
+        profile,
+        note.assignment_id
+      );
+
+      if (!assignment) continue;
+
+      const [studentResult, caseResult] = await Promise.all([
+        admin
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .eq("id", assignment.student_id)
+          .maybeSingle(),
+        admin
+          .schema("learning")
+          .from("cases")
+          .select("id, title, patient_name")
+          .eq("id", assignment.case_id)
+          .maybeSingle(),
+      ]);
+
+      if (studentResult.error) throw studentResult.error;
+      if (caseResult.error) throw caseResult.error;
+
+      submissions.push({
+        id: note.id,
+        assignmentId: assignment.id,
+        noteType: note.note_type,
+        status: note.status,
+        updatedAt: note.updated_at,
+        student: studentResult.data
+          ? {
+              id: studentResult.data.id,
+              name: [
+                studentResult.data.first_name,
+                studentResult.data.last_name,
+              ].filter(Boolean).join(" "),
+            }
+          : null,
+        patientCase: caseResult.data,
+      });
+    }
+
+    return response.json({ submissions });
+  } catch (error) {
+    console.error("Unable to load submissions:", error);
+    return response.status(500).json({
+      message: "Unable to load student submissions.",
+    });
+  }
+});
+
+
+instructorRouter.get(
+  "/submissions/:assignmentId",
+  async (request, response) => {
+    try {
+      const context = await requireInstructor(request, response);
+      if (!context) return;
+
+      const { supabaseAdmin: admin, profile } = context;
+
+      const assignment = await getReviewAssignment(
+        admin,
+        profile,
+        request.params.assignmentId
+      );
+
+      if (!assignment) {
+        return response.status(404).json({
+          message: "Submission not found or access denied.",
+        });
+      }
+
+      const [noteResult, ordersResult, studentResult, caseResult] =
+        await Promise.all([
+          admin
+            .schema("learning")
+            .from("notes")
+            .select("*")
+            .eq("assignment_id", assignment.id)
+            .in("status", [
+              "Pending Review",
+              "Approved",
+              "Returned",
+            ])
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          admin
+            .schema("learning")
+            .from("orders")
+            .select("*")
+            .eq("assignment_id", assignment.id)
+            .order("id"),
+          admin
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .eq("id", assignment.student_id)
+            .maybeSingle(),
+          admin
+            .schema("learning")
+            .from("cases")
+            .select("*")
+            .eq("id", assignment.case_id)
+            .maybeSingle(),
+        ]);
+
+      const queryError =
+        noteResult.error ||
+        ordersResult.error ||
+        studentResult.error ||
+        caseResult.error;
+
+      if (queryError) throw queryError;
+
+      if (!noteResult.data) {
+        return response.status(404).json({
+          message: "No submitted note found.",
+        });
+      }
+
+      return response.json({
+        assignmentId: assignment.id,
+        note: noteResult.data,
+        orders: ordersResult.data || [],
+        student: studentResult.data,
+        patientCase: caseResult.data,
+      });
+    } catch (error) {
+      console.error("Unable to load submission:", error);
+      return response.status(500).json({
+        message: "Unable to load this submission.",
+      });
+    }
+  }
+);
+
+instructorRouter.patch(
+  "/submissions/:assignmentId/review",
+  async (request, response) => {
+    try {
+      const context = await requireInstructor(request, response);
+      if (!context) return;
+
+      const { supabaseAdmin: admin, profile } = context;
+      const { decision } = request.body || {};
+
+      if (!["Approved", "Returned"].includes(decision)) {
+        return response.status(400).json({
+          message: "Decision must be Approved or Returned.",
+        });
+      }
+
+      const assignment = await getReviewAssignment(
+        admin,
+        profile,
+        request.params.assignmentId
+      );
+
+      if (!assignment) {
+        return response.status(404).json({
+          message: "Submission not found or access denied.",
+        });
+      }
+
+      const { data: note, error: noteError } =
+        await admin
+          .schema("learning")
+          .from("notes")
+          .select("id, status")
+          .eq("assignment_id", assignment.id)
+          .eq("status", "Pending Review")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (noteError) throw noteError;
+
+      if (!note) {
+        return response.status(409).json({
+          message: "No pending submission available for review.",
+        });
+      }
+
+      const { data: reviewedNote, error: updateError } =
+        await admin
+          .schema("learning")
+          .from("notes")
+          .update({
+            status: decision,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", note.id)
+          .eq("status", "Pending Review")
+          .select()
+          .maybeSingle();
+
+      if (updateError) throw updateError;
+
+      if (!reviewedNote) {
+        return response.status(409).json({
+          message: "Submission has already been reviewed.",
+        });
+      }
+
+      return response.json({
+        message:
+          decision === "Approved"
+            ? "Submission approved."
+            : "Submission returned for revision.",
+        note: reviewedNote,
+      });
+    } catch (error) {
+      console.error("Unable to review submission:", error);
+      return response.status(500).json({
+        message: "Unable to review this submission.",
+      });
+    }
+  }
+);
+
 export default instructorRouter;
