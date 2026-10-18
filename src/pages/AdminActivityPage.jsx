@@ -31,6 +31,8 @@ function AdminActivityPage() {
   const [selectedClassroom, setSelectedClassroom] = useState("all");
   const [searchText, setSearchText] = useState("");
 
+  const [activityFilter, setActivityFilter] = useState("all");
+
   // The student currently selected by the Admin.
   const [selectedStudentId, setSelectedStudentId] = useState(null);
 
@@ -126,6 +128,7 @@ function AdminActivityPage() {
 
   // Filter the case activity table.
   const visibleActivity = activity.filter((item) => {
+    //First, check if the student belongs to the selected classroom.
     let belongsToClassroom = true;
 
     if (selectedClassroom !== "all") {
@@ -134,11 +137,45 @@ function AdminActivityPage() {
       );
     }
 
+    //Second, check if the case matches the search text.
     const matchesSearch =
       item.studentName.toLowerCase().includes(search) ||
       item.caseTitle.toLowerCase().includes(search);
 
-    return belongsToClassroom && matchesSearch;
+    // Third, check if the case matches the activity filter.
+    const noteStatus = (item.noteStatus || "Not Started").toLowerCase();
+    const encounterStatus = (item.encounterStatus || "Not Started").toLowerCase();
+
+    // An ecounter is unfinished until its status is "checked out"
+    const unfinishedEncounter = encounterStatus !== "checked out";
+
+    // These note status mean more work is needed
+    const unfinishedNote = ["not started", "draft", "returned"].includes(noteStatus);
+
+    let matchesActivityFilter = true;
+
+    switch (activityFilter) {
+      case "attention":
+        matchesActivityFilter = unfinishedEncounter || unfinishedNote;
+        break;
+
+      case "unsubmitted":
+        matchesActivityFilter = unfinishedNote;
+        break;
+      case "no-note":
+        matchesActivityFilter = noteStatus === "not started";
+        break;
+      case "draft":
+        matchesActivityFilter = noteStatus === "draft" || noteStatus === "returned";
+        break;
+      case "encounter":
+        matchesActivityFilter = unfinishedEncounter;
+        break;
+      default:
+        matchesActivityFilter = true;
+    }
+
+    return belongsToClassroom && matchesSearch && matchesActivityFilter;
   });
 
   // Find the student selected by the Admin.
@@ -245,6 +282,22 @@ function AdminActivityPage() {
                   setSelectedStudentId(null);
                 }}
               />
+            </label>
+
+            <label>
+              Activity Status
+
+              <select
+                value={activityFilter}
+                onChange={(event) => setActivityFilter(event.target.value)}
+              >
+                <option value="all">All Cases</option>
+                <option value="attention">Needs Attention</option>
+                <option value="unsubmitted">SOAP Not Submitted</option>
+                <option value="no-note">No SOAP Note Started</option>
+                <option value="draft">SOAP Draft or Returned</option>
+                <option value="encounter">Unfinished Encounter</option>
+              </select>
             </label>
           </section>
 
@@ -496,7 +549,7 @@ function AdminActivityPage() {
 
           {/* ALL STUDENT CASE ACTIVITY */}
           <section className="panel admin-activity-section">
-            <h2>Student Case Activity</h2>
+            <h2>Student Case Activity ({visibleActivity.length})</h2>
 
             <p>
               Current encounter and SOAP documentation progress.
