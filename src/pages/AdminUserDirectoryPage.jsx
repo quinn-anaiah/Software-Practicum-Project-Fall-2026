@@ -102,9 +102,7 @@ function AdminUserDirectoryPage() {
     };
   }, []);
 
-  const selectedUser =
-    directory.users.find((user) => user.id === selectedUserId) ||
-    directory.users[0];
+  const selectedUser = directory.users.find((user) => user.id === selectedUserId) || null;
   const largestRoleCount = Math.max(
     ...(directory.stats?.roleBreakdown || []).map((role) => role.count),
     1,
@@ -410,84 +408,6 @@ function AdminUserDirectoryPage() {
             ))}
           </article>
 
-          <article className="panel account-detail">
-            <p className="section-label">Selected account</p>
-            {selectedUser ? (
-              <>
-                <h2>{selectedUser.name}</h2>
-                <p className="account-detail__email">{selectedUser.email}</p>
-                <dl>
-                  <div>
-                    <dt>Role</dt>
-                    <dd>{selectedUser.role || "Unassigned"}</dd>
-                  </div>
-                  <div>
-                    <dt>Subrole</dt>
-                    <dd>{selectedUser.subrole || "Not assigned"}</dd>
-                  </div>
-                  <div>
-                    <dt>UTEP ID</dt>
-                    <dd>{selectedUser.utepId || "Not provided"}</dd>
-                  </div>
-                  <div>
-                    <dt>Careflow ID</dt>
-                    <dd>{selectedUser.careflowId || "Not created"}</dd>
-                  </div>
-                  <div>
-                    <dt>Auth user ID</dt>
-                    <dd>{selectedUser.id}</dd>
-                  </div>
-                  <div>
-                    <dt>Created</dt>
-                    <dd>{formatDate(selectedUser.createdAt)}</dd>
-                  </div>
-                </dl>
-                <p className="account-detail__note">
-                  Passwords, password hashes, and authentication tokens are
-                  never available in this directory.
-                </p>
-                {selectedUser.role === "Admin" ? (
-                  <p className="account-detail__note">
-                    Admin access is protected from changes in this workspace. Use a future Super Admin process for Admin role assignments.
-                  </p>
-                ) : (
-                  <form
-                    className="admin-form admin-form--compact"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      runManagementAction(() => updateAdminUserAccess(selectedUser.id, selectedAccessDraft));
-                    }}
-                  >
-                    <p className="section-label">Manage access</p>
-                    <label>
-                      Account role
-                      <select onChange={(event) => setAccessDraft({ ...selectedAccessDraft, roleId: event.target.value })} required value={selectedAccessDraft.roleId}>
-                        <option value="">Choose a role</option>
-                        {accessOptions.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      Discipline
-                      <select onChange={(event) => setAccessDraft({ ...selectedAccessDraft, subroleId: event.target.value })} value={selectedAccessDraft.subroleId}>
-                        <option value="">No discipline assigned</option>
-                        {accessOptions.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}
-                      </select>
-                    </label>
-                    <button className="secondary-button" disabled={isSaving || !selectedAccessDraft.roleId} type="submit">Save access</button>
-                    <div className="admin-form__inline-actions">
-                      <button className="text-button" disabled={isSaving} onClick={() => runManagementAction(() => requestAdminPasswordReset(selectedUser.id))} type="button">Send password reset</button>
-                      <button className="text-button text-button--danger" disabled={isSaving} onClick={() => runManagementAction(() => updateAdminUserStatus(selectedUser.id, !selectedUser.isActive))} type="button">
-                        {selectedUser.isActive ? "Deactivate account" : "Reactivate account"}
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </>
-            ) : (
-              <p className="directory-loading">Select an account to view its profile.</p>
-            )}
-          </article>
-
           <article className="panel audit-log">
             <p className="section-label">Protected activity</p>
             <h2>Recent account audit</h2>
@@ -506,6 +426,81 @@ function AdminUserDirectoryPage() {
           </article>
         </aside>
       </section>
+
+      {selectedUser && (
+        <section
+          aria-label={`Account details for ${selectedUser.name}`}
+          className="account-modal-backdrop"
+          onMouseDown={() => setSelectedUserId(null)}
+          role="presentation"
+        >
+          <article
+            aria-modal="true"
+            className="panel account-detail account-detail-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="panel__header">
+              <div>
+                <p className="section-label">Account profile</p>
+                <h2>{selectedUser.name}</h2>
+              </div>
+              <button
+                aria-label="Close account details"
+                className="row-action"
+                onClick={() => setSelectedUserId(null)}
+                type="button"
+              >
+                <Icon name="close" size={17} />
+              </button>
+            </div>
+            <p className="account-detail__email">{selectedUser.email}</p>
+            <dl>
+              <div><dt>Role</dt><dd>{selectedUser.role || "Unassigned"}</dd></div>
+              <div><dt>Subrole</dt><dd>{selectedUser.subrole || "Not assigned"}</dd></div>
+              <div><dt>UTEP ID</dt><dd>{selectedUser.utepId || "Not provided"}</dd></div>
+              <div><dt>Careflow ID</dt><dd>{selectedUser.careflowId || "Not created"}</dd></div>
+              <div><dt>Auth user ID</dt><dd>{selectedUser.id}</dd></div>
+              <div><dt>Created</dt><dd>{formatDate(selectedUser.createdAt)}</dd></div>
+            </dl>
+            <p className="account-detail__note">Passwords, password hashes, and authentication tokens are never available in this directory.</p>
+            {selectedUser.role === "Admin" ? (
+              <p className="account-detail__note">Admin access is protected from changes in this workspace. Use a future Super Admin process for Admin role assignments.</p>
+            ) : (
+              <form
+                className="admin-form admin-form--compact"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  runManagementAction(() => updateAdminUserAccess(selectedUser.id, selectedAccessDraft));
+                }}
+              >
+                <p className="section-label">Manage access</p>
+                <label>
+                  Account role
+                  <select onChange={(event) => setAccessDraft({ ...selectedAccessDraft, roleId: event.target.value })} required value={selectedAccessDraft.roleId}>
+                    <option value="">Choose a role</option>
+                    {accessOptions.roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                  </select>
+                </label>
+                <label>
+                  Discipline
+                  <select onChange={(event) => setAccessDraft({ ...selectedAccessDraft, subroleId: event.target.value })} value={selectedAccessDraft.subroleId}>
+                    <option value="">No discipline assigned</option>
+                    {accessOptions.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}
+                  </select>
+                </label>
+                <button className="secondary-button" disabled={isSaving || !selectedAccessDraft.roleId} type="submit">Save access</button>
+                <div className="admin-form__inline-actions">
+                  <button className="text-button" disabled={isSaving} onClick={() => runManagementAction(() => requestAdminPasswordReset(selectedUser.id))} type="button">Send password reset</button>
+                  <button className="text-button text-button--danger" disabled={isSaving} onClick={() => runManagementAction(() => updateAdminUserStatus(selectedUser.id, !selectedUser.isActive))} type="button">
+                    {selectedUser.isActive ? "Deactivate account" : "Reactivate account"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </article>
+        </section>
+      )}
     </div>
   );
 }

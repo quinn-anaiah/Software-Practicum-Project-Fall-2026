@@ -50,7 +50,9 @@ function AdminAcademicsPage() {
   async function loadAcademics() {
     const result = await fetchAdminAcademics();
     setAcademics(result);
-    setSelectedClassroomId((current) => current || result.classrooms[0]?.id || "");
+    setSelectedClassroomId((current) => (
+      result.classrooms.some((classroom) => classroom.id === current) ? current : ""
+    ));
   }
 
   useEffect(() => {
@@ -60,7 +62,7 @@ function AdminAcademicsPage() {
         const result = await fetchAdminAcademics();
         if (!isCurrent) return;
         setAcademics(result);
-        setSelectedClassroomId(result.classrooms[0]?.id || "");
+        setSelectedClassroomId("");
         setStatus("ready");
       } catch (loadError) {
         if (!isCurrent) return;
@@ -86,7 +88,7 @@ function AdminAcademicsPage() {
     (studentPage - 1) * studentsPerPage,
     studentPage * studentsPerPage,
   );
-  const selectedClassroom = academics.classrooms.find((classroom) => classroom.id === selectedClassroomId) || visibleClassrooms[0];
+  const selectedClassroom = academics.classrooms.find((classroom) => classroom.id === selectedClassroomId) || null;
   const matchingInstructors = academics.instructors.filter(
     (instructor) => instructor.subroleId === selectedClassroom?.discipline_subrole_id,
   );
@@ -240,7 +242,7 @@ function AdminAcademicsPage() {
       {status === "loading" && <section className="panel directory-loading">Loading academic information…</section>}
       {status === "error" && <section className="panel directory-error">{error}</section>}
       {status === "ready" && (
-        <section className="directory-layout admin-academics-layout">
+        <section className="admin-classroom-directory">
           <article className="panel directory-table-panel">
             <div className="academic-class-list admin-scroll-list">
               {paginatedClassrooms.map((classroom) => <button className={selectedClassroom?.id === classroom.id ? "academic-class-row academic-class-row--selected" : "academic-class-row"} key={classroom.id} onClick={() => setSelectedClassroomId(classroom.id)} type="button"><div><strong>{classroom.short_name}</strong><small>{classroom.full_name}</small></div><span>{classroom.term}</span><span>{classroom.discipline}</span><span>{classroom.studentCount} students</span></button>)}
@@ -248,18 +250,39 @@ function AdminAcademicsPage() {
             </div>
             <Pagination currentPage={classroomPage} itemLabel="classrooms" onPageChange={setClassroomPage} pageSize={classroomsPerPage} totalItems={visibleClassrooms.length} />
           </article>
-          <aside className="directory-sidebar">
-            <article className="panel academic-detail-panel">
-              {selectedClassroom ? <>
-                <p className="section-label">Selected classroom</p><h2>{selectedClassroom.full_name}</h2>
-                <p className="academic-detail-panel__metadata">{selectedClassroom.short_name} · CRN {selectedClassroom.crn} · {selectedClassroom.room || "Room not set"}</p>
-                <div className="classroom-stat-line"><span>{selectedClassroom.term}</span><span>{selectedClassroom.discipline}</span><span>{selectedClassroom.studentCount} enrolled</span></div>
+        </section>
+      )}
+
+      {selectedClassroom && (
+        <section
+          aria-label={`Classroom details for ${selectedClassroom.full_name}`}
+          className="account-modal-backdrop"
+          onMouseDown={() => setSelectedClassroomId("")}
+          role="presentation"
+        >
+          <article
+            aria-modal="true"
+            className="panel academic-classroom-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="panel__header">
+              <div>
+                <p className="section-label">Classroom overview</p>
+                <h2>{selectedClassroom.full_name}</h2>
+              </div>
+              <button aria-label="Close classroom details" className="row-action" onClick={() => setSelectedClassroomId("")} type="button">×</button>
+            </div>
+            <p className="academic-detail-panel__metadata">{selectedClassroom.short_name} · CRN {selectedClassroom.crn} · {selectedClassroom.room || "Room not set"}</p>
+            <div className="classroom-stat-line"><span>{selectedClassroom.term}</span><span>{selectedClassroom.discipline}</span><span>{selectedClassroom.studentCount} enrolled</span></div>
+            <section className="academic-classroom-modal__grid">
+              <div>
                 <div className="academic-instructor-list"><strong>Assigned instructors</strong>{selectedClassroom.instructors.length ? selectedClassroom.instructors.map((instructor) => <div key={instructor.id}><span>{instructor.name.split(" ").map((part) => part[0]).join("")}</span><p>{instructor.name}<small>{instructor.accessLevel === "owner" ? "Lead instructor" : "Co-instructor"}</small></p></div>) : <p className="directory-loading">No instructor assigned yet.</p>}</div>
                 <form className="admin-form admin-form--compact" onSubmit={submitInstructor}><p className="section-label">Assign instructor</p><select onChange={(event) => setInstructorId(event.target.value)} required value={instructorId}><option value="">Choose {selectedClassroom.discipline} instructor</option>{matchingInstructors.filter((instructor) => !selectedClassroom.instructors.some((assigned) => assigned.id === instructor.id)).map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}</select><button className="secondary-button" disabled={isSaving || !matchingInstructors.length} type="submit">Assign instructor</button></form>
-              </> : <p className="directory-loading">Choose a classroom to review it.</p>}
-            </article>
-            <article className="panel academic-student-panel"><p className="section-label">Student directory</p><h2>All students</h2><div className="admin-scroll-list">{paginatedStudents.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!academics.students.length && <p className="directory-loading">No student profiles yet.</p>}</div><Pagination currentPage={studentPage} itemLabel="students" onPageChange={setStudentPage} pageSize={studentsPerPage} totalItems={academics.students.length} /></article>
-          </aside>
+              </div>
+              <div className="academic-student-panel academic-student-panel--modal"><p className="section-label">Student directory</p><h2>All students</h2><div className="admin-scroll-list">{paginatedStudents.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!academics.students.length && <p className="directory-loading">No student profiles yet.</p>}</div><Pagination currentPage={studentPage} itemLabel="students" onPageChange={setStudentPage} pageSize={studentsPerPage} totalItems={academics.students.length} /></div>
+            </section>
+          </article>
         </section>
       )}
     </div>
