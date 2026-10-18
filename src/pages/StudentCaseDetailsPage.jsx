@@ -1,10 +1,10 @@
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import {
   fetchStudentCases,
   fetchStudentNote,
-  fetchStudentOrders,
   updateStudentCaseStatus,
 } from "../lib/api";
 
@@ -16,82 +16,59 @@ const statusOrder = [
   "Checked out",
 ];
 
-const statusButtonLabels = {
+const statusLabels = {
   Scheduled: "Check In",
   "Checked in": "Mark as Roomed",
   Roomed: "Start Encounter",
   "In progress": "Check Out",
 };
 
-function StudentCaseDetailPage({
-  selectedCaseId,
-  onNavigate,
-  updateCaseStatus,
-  studentNotes = {},
-  studentOrders = {},
-  studentSubmissions = {},
-}) {
+function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
   const [searchParams] = useSearchParams();
+  const caseId = searchParams.get("id") ?? selectedCaseId;
+
+  const [activeTab, setActiveTab] = useState("case");
   const [patientCase, setPatientCase] = useState(null);
   const [savedNote, setSavedNote] = useState(null);
-  const [savedOrders, setSavedOrders] = useState([]);
-  const [casesLoading, setCasesLoading] = useState(true);
-  const [casesError, setCasesError] = useState("");
-
-  const caseIdFromUrl = searchParams.get("id");
-  const activeCaseId =
-    caseIdFromUrl !== null ? Number(caseIdFromUrl) : selectedCaseId;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
 
     async function loadCase() {
-      if (activeCaseId === null || activeCaseId === undefined) {
-        setCasesLoading(false);
-        return;
-      }
+      setLoading(true);
+      setError("");
+      setPatientCase(null);
+      setSavedNote(null);
+      setActiveTab("case");
 
       try {
-        setCasesLoading(true);
-        setCasesError("");
+        if (caseId == null) return;
 
         const cases = await fetchStudentCases();
-
         if (!isCurrent) return;
 
-        const selectedCase = cases.find(
-          (currentCase) =>
-            String(currentCase.id) === String(activeCaseId),
+        const selected = cases.find(
+          (item) => String(item.id) === String(caseId)
         );
 
-        setPatientCase(selectedCase ?? null);
-        if (selectedCase?.assignment_id) {
-          const note = await fetchStudentNote(
-            selectedCase.assignment_id,
-          );
+        setPatientCase(selected ?? null);
 
-          if (!isCurrent) return;
+        if (!selected?.assignment_id) return;
 
-          setSavedNote(note);
-        }
-
-      if (selectedCase?.assignment_id) {
-        const orders = await fetchStudentOrders(
-          selectedCase.assignment_id,
+        const note = await fetchStudentNote(
+          selected.assignment_id
         );
 
         if (!isCurrent) return;
 
-        setSavedOrders(orders);
-      }
-      } catch (error) {
-        if (isCurrent) {
-          setCasesError(error.message);
-        }
+        setSavedNote(note);
+      } catch (err) {
+        if (isCurrent) setError(err.message);
       } finally {
-        if (isCurrent) {
-          setCasesLoading(false);
-        }
+        if (isCurrent) setLoading(false);
       }
     }
 
@@ -100,9 +77,51 @@ function StudentCaseDetailPage({
     return () => {
       isCurrent = false;
     };
-  }, [activeCaseId]);
+  }, [caseId]);
 
-  if (casesLoading) {
+  function navigateTo(page) {
+    onNavigate(page, { caseId: patientCase.id });
+  }
+
+  async function advanceStatus() {
+    const currentStatus =
+      patientCase.encounter_status ??
+      patientCase.starting_encounter_status;
+
+    const index = statusOrder.indexOf(currentStatus);
+
+    if (
+      updatingStatus ||
+      index < 0 ||
+      index >= statusOrder.length - 1 ||
+      currentStatus === "In progress"
+    ) {
+      return;
+    }
+
+    try {
+      setUpdatingStatus(true);
+      setError("");
+
+      const nextStatus = statusOrder[index + 1];
+
+      await updateStudentCaseStatus(
+        patientCase.assignment_id,
+        nextStatus
+      );
+
+      setPatientCase((current) => ({
+        ...current,
+        encounter_status: nextStatus,
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
+  if (loading) {
     return (
       <div className="dashboard-page content-page">
         <p role="status">Loading case...</p>
@@ -110,90 +129,80 @@ function StudentCaseDetailPage({
     );
   }
 
-  if (casesError) {
-    return (
-      <div className="dashboard-page content-page">
-        <p role="alert">{casesError}</p>
-      </div>
-    );
-  }
-
   if (!patientCase) {
     return (
       <div className="dashboard-page content-page">
-        <p>No case selected. Choose a case from your dashboard.</p>
+        {error && <p role="alert">{error}</p>}
+        <p>Case not found.</p>
 
         <button
           className="secondary-button"
           type="button"
           onClick={() => onNavigate("overview")}
         >
-          Back to my cases
+          Back to My Cases
         </button>
       </div>
     );
   }
 
-  const orders = studentOrders[patientCase.id] ?? [];
-  const submission = studentSubmissions[patientCase.id];
-  const medications = patientCase.medications ?? [];
-  const allergies = patientCase.allergies ?? [];
-
   const encounterStatus =
     patientCase.encounter_status ??
-    patientCase.starting_encounter_status;
+    patientCase.starting_encounter_status ??
+    "Scheduled";
 
-  const noteStatus = savedNote
-    ? "In progress"
-    : "Not started";
-  
-  const orderStatus =
-  savedOrders.length > 0
-    ? "In progress"
-    : "Not started";
-    
-  const encounterInProgress = encounterStatus === "In progress";
-  const isSubmitted = submission?.status === "Pending Review";
-  const readyToSubmit =
-    Boolean(savedNote) && savedOrders.length > 0;
-  const statusButtonLabel = statusButtonLabels[encounterStatus];
+  const encounterInProgress =
+    encounterStatus === "In progress";
 
-  async function advanceStatus() {
-    const currentIndex = statusOrder.indexOf(encounterStatus);
+  const noteStatus = savedNote?.status || "Not started";
+  const hasNote = Boolean(savedNote);
 
-    if (
-      currentIndex < 0 ||
-      currentIndex >= statusOrder.length - 1
-    ) {
-      return;
-    }
+  const readyForReview = encounterInProgress && hasNote;
 
-    const nextStatus = statusOrder[currentIndex + 1];
+  const details = [
+    ["Age", patientCase.patient_age ?? "Not provided"],
+    ["Sex", patientCase.patient_sex || "Not provided"],
+    ["Chief Complaint", patientCase.chief_complaint || "Not provided"],
+    ["Medical History", patientCase.history || "Not provided"],
+    ["Current Medications", patientCase.medications],
+    ["Allergies", patientCase.allergies],
+    ["Results", patientCase.results || "No results available"],
+  ];
 
-    try {
-      setCasesError("");
-
-      await updateStudentCaseStatus(
-        patientCase.assignment_id,
-        nextStatus,
+  function renderDetail(value) {
+    if (Array.isArray(value)) {
+      return value.length ? (
+        <ul>
+          {value.map((item, index) => (
+            <li key={index}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        "None listed"
       );
-
-      setPatientCase((currentCase) => ({
-        ...currentCase,
-        encounter_status: nextStatus,
-      }));
-    } catch (error) {
-      setCasesError(error.message);
     }
+
+    return value ?? "Not provided";
   }
 
   return (
     <div className="dashboard-page content-page">
-      <section className="page-heading">
+      {/* PATIENT HEADER */}
+      <section className="page-heading case-header">
         <div>
-          <p className="section-label">Case · {patientCase.id}</p>
+          <p className="section-label">
+            Student Encounter · Case {patientCase.id}
+          </p>
+
           <h1>{patientCase.patient_name}</h1>
-          <p>{patientCase.title || "Clinical case"}</p>
+
+          <p>
+            {patientCase.patient_age ?? "Age not provided"} years
+            {" · "}
+            {patientCase.patient_sex || "Sex not provided"}
+            {" · "}
+            {patientCase.title}
+          </p>
         </div>
 
         <button
@@ -201,179 +210,173 @@ function StudentCaseDetailPage({
           type="button"
           onClick={() => onNavigate("overview")}
         >
-          <Icon name="arrow" size={16} /> Back
+          <Icon name="arrow" size={16} />
+          Back to My Cases
         </button>
       </section>
 
-      <section className="panel data-panel">
-        <dl className="detail-form-grid">
-          <div className="detail-field">
-            <dt>Age</dt>
-            <dd>{patientCase.patient_age ?? "Not provided"}</dd>
-          </div>
+      {/* TABS AND ENCOUNTER STATUS */}
+      <div className="case-tabs-bar">
+        <nav className="case-tabs" aria-label="Case sections">
+          {[
+            ["case", "Case Information"],
+            ["notes", "Notes"],
+            ["review", "Review & Submit"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`case-tab ${
+                activeTab === id ? "case-tab--active" : ""
+              }`}
+              onClick={() => setActiveTab(id)}
+              aria-current={
+                activeTab === id ? "page" : undefined
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+          <div className="case-encounter-status">
+            <span className="encounter-status-label">
+              Encounter Status:
+            </span>
 
-          <div className="detail-field">
-            <dt>Sex</dt>
-            <dd>{patientCase.patient_sex || "Not provided"}</dd>
-          </div>
+            <span className="status-badge">
+              {encounterStatus}
+            </span>
 
-          <div className="detail-field detail-field--wide">
-            <dt>Chief complaint</dt>
-            <dd>{patientCase.chief_complaint || "Not provided"}</dd>
-          </div>
+          {statusLabels[encounterStatus] && (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={advanceStatus}
+              disabled={updatingStatus || encounterInProgress}
+            >
+              {updatingStatus
+                ? "Updating..."
+                : statusLabels[encounterStatus]}
+            </button>
+          )}
+        </div>
+      </div>
 
-          <div className="detail-field detail-field--wide">
-            <dt>History</dt>
-            <dd>{patientCase.history || "Not provided"}</dd>
-          </div>
+      {error && <p role="alert">{error}</p>}
 
-          <div className="detail-field detail-field--wide">
-            <dt>Current medications</dt>
-            <dd>
-              {medications.length > 0 ? (
-                <ul>
-                  {medications.map((medication, index) => (
-                    <li key={`${medication}-${index}`}>
-                      {medication}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                "No medications listed"
-              )}
-            </dd>
-          </div>
+      {/* CASE INFORMATION */}
+      {activeTab === "case" && (
+        <section className="panel data-panel case-section">
+          <h2>Case Information</h2>
 
-          <div className="detail-field detail-field--wide">
-            <dt>Allergies</dt>
-            <dd>
-              {allergies.length > 0 ? (
-                <ul>
-                  {allergies.map((allergy, index) => (
-                    <li key={`${allergy}-${index}`}>
-                      {allergy}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                "No allergies listed"
-              )}
-            </dd>
-          </div>
-
-          <div className="detail-field detail-field--wide">
-            <dt>Results</dt>
-            <dd>{patientCase.results || "No results available"}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="panel data-panel">
-        <dl className="detail-form-grid">
-          <div className="detail-field">
-            <dt>Encounter status</dt>
-
-            <dd className="status-action">
-              <span>{encounterStatus}</span>
-
-              {statusButtonLabel && (
-                <button
-                  className="primary-button"
-                  type="button"
-                  onClick={advanceStatus}
-                  disabled={encounterStatus === "In progress"}
-                >
-                  {statusButtonLabel}
-                </button>
-              )}
-            </dd>
-          </div>
-
-          <div className="detail-field">
-            <dt>Note status</dt>
-
-            <dd className="status-action">
-              <span>{noteStatus}</span>
-
-              <button
-                className="primary-button"
-                type="button"
-                disabled={!encounterInProgress}
-                onClick={() =>
-                  onNavigate("noteForm", {
-                    caseId: patientCase.id,
-                  })
-                }
+          <dl className="detail-form-grid">
+            {details.map(([label, value], index) => (
+              <div
+                className={`detail-field ${
+                  index > 1 ? "detail-field--wide" : ""
+                }`}
+                key={label}
               >
-                {noteStatus === "Not started"
-                  ? "Start Note"
-                  : "Continue Note"}
-              </button>
-            </dd>
+                <dt>{label}</dt>
+                <dd>{renderDetail(value)}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      {/* NOTES */}
+      {activeTab === "notes" && (
+        <section className="panel data-panel case-section">
+          <div className="case-section-heading">
+            <div>
+              <h2>Clinical Notes</h2>
+              <p>
+                {hasNote
+                  ? "You have a saved clinical note. Continue editing where you left off."
+                  : "No clinical note has been started for this encounter."}
+              </p>
+            </div>
+
+            <span className="status-badge">
+              {noteStatus}
+            </span>
           </div>
 
-          <div className="detail-field">
-            <dt>Orders</dt>
+          <dl className="detail-form-grid">
+            <div className="detail-field">
+              <dt>Note Type</dt>
+              <dd>SOAP Note</dd>
+            </div>
 
-            <dd className="status-action">
-              <span>
-                {savedOrders.length === 0
-                  ? "No orders"
-                  : `${savedOrders.length} draft ${
-                      savedOrders.length === 1 ? "order" : "orders"
-                    }`}
-              </span>
+            <div className="detail-field">
+              <dt>Status</dt>
+              <dd>{noteStatus}</dd>
+            </div>
+          </dl>
 
-              <button
-                className="primary-button"
-                type="button"
-                disabled={!encounterInProgress}
-                onClick={() =>
-                  onNavigate("orderEntry", {
-                    caseId: patientCase.id,
-                  })
-                }
-              >
-                  {orderStatus === "Not started"
-                  ? "Start Orders"
-                  : "Continue Orders"}
-              </button>
-            </dd>
+          <div className="form-actions">
+            <button
+              className="primary-button"
+              type="button"
+              disabled={
+                !encounterInProgress ||
+                noteStatus === "Signed" ||
+                noteStatus === "Approved"
+              }
+              onClick={() => navigateTo("noteForm")}
+            >
+              {hasNote ? "Continue Note" : "Start Note"}
+            </button>
           </div>
 
-          <div className="detail-field">
-            <dt>Submission</dt>
+          {!encounterInProgress && (
+            <p className="case-help-text">
+              Start the encounter before editing clinical notes.
+            </p>
+          )}
+        </section>
+      )}
 
-            <dd className="status-action">
-              <span>
-                {submission?.status ||
-                  (readyToSubmit
-                    ? "Ready for review"
-                    : "Not ready")}
-              </span>
-
-              <button
-                className="primary-button"
-                type="button"
-                disabled={
-                  !encounterInProgress ||
-                  !readyToSubmit ||
-                  isSubmitted
-                }
-                onClick={() =>
-                  onNavigate("submission", {
-                    caseId: patientCase.id,
-                  })
-}
-              >
-                {isSubmitted
-                  ? "Submitted"
-                  : "Submit for Review"}
-              </button>
-            </dd>
+      {/* REVIEW & SUBMIT */}
+      {activeTab === "review" && (
+        <section className="panel data-panel case-section">
+          <div className="case-section-heading">
+            <div>
+              <h2>Review & Submit</h2>
+              <p>
+                Review your saved SOAP note before
+                submitting it for instructor review.
+              </p>
+            </div>
           </div>
-        </dl>
-      </section>
+
+          <dl className="detail-form-grid">
+            <div className="detail-field">
+              <dt>SOAP Note</dt>
+              <dd>{noteStatus}</dd>
+            </div>
+          </dl>
+
+          <div className="form-actions">
+            <button
+              className="primary-button"
+              type="button"
+              disabled={!readyForReview}
+              onClick={() => navigateTo("submission")}
+            >
+              Review Documentation
+            </button>
+          </div>
+
+          {!readyForReview && (
+            <p className="case-help-text">
+              Start the encounter and save a SOAP note
+              before reviewing.
+            </p>
+          )}
+        </section>
+      )}
     </div>
   );
 }
