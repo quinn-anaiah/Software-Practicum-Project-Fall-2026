@@ -3895,3 +3895,30 @@ td small {
 .encounter-status-label { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .note-patient-summary p,
 .note-patient-summary li { font-size: 13px; line-height: 1.45; }
+
+
+/* Keep sidebar navigation inside the sidebar */
+
+.sidebar__nav {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+/* Allow long navigation labels to wrap */
+.sidebar:hover .nav-item,
+.sidebar--pinned .nav-item {
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+}
+
+/* Prevent text from stretching the button */
+.sidebar .nav-item span {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Keep sidebar icons their original size */
+.sidebar .nav-item .icon {
+  flex-shrink: 0;
+}

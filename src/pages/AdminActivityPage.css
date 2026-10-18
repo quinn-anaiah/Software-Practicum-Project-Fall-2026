@@ -1,0 +1,222 @@
+
+/* ADMIN CLASSROOM AND STUDENT ACTIVITY */
+
+/* Classroom and search filters */
+
+.admin-activity-filters {
+  display: flex;
+  gap: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.admin-activity-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 250px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-activity-filters select,
+.admin-activity-filters input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d9dfeb;
+  border-radius: 8px;
+  background: white;
+  color: #35415e;
+}
+
+/* Regular table sections */
+
+.admin-activity-section {
+  padding: 20px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+
+.admin-activity-section h2 {
+  margin: 0 0 15px;
+  font-size: 18px;
+  color: #35415e;
+}
+
+.admin-activity-section p {
+  color: #748198;
+  font-size: 12px;
+}
+
+.admin-activity-section .table-wrap {
+  overflow-x: auto;
+}
+
+.admin-activity-section table {
+  width: 100%;
+}
+
+.admin-activity-section td small {
+  display: block;
+  margin-top: 4px;
+  color: #8490a3;
+}
+
+/* Status labels */
+
+.admin-activity-status {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: #eef2f8;
+  color: #4b5c78;
+  font-size: 11px;
+}
+
+/* Student roster and details layout */
+
+/* The roster fills the page when no student is selected. */
+.admin-activity-student-layout {
+  display: block;
+}
+
+/* Split into two columns when details are open. */
+.admin-activity-student-layout--open {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+/* View Details button */
+
+.admin-activity-view-button {
+  border: 1px solid #d2dcee;
+  border-radius: 7px;
+  padding: 8px 12px;
+  background: #f2f6fd;
+  color: #365d9b;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-activity-view-button:hover {
+  background: #e3ecfb;
+}
+
+/* Student details panel */
+
+.admin-activity-details {
+  padding: 20px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+
+.admin-activity-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-activity-details-header h2 {
+  margin: 6px 0 0;
+  color: #35415e;
+  font-size: 20px;
+}
+
+.admin-activity-close-button {
+  padding: 7px 12px;
+  border: 1px solid #d9dfeb;
+  border-radius: 7px;
+  background: white;
+  color: #66758f;
+  font-size: 11px;
+}
+
+/* Sections inside the details panel */
+
+.admin-activity-details-section {
+  margin-top: 22px;
+}
+
+.admin-activity-details-section h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #35415e;
+}
+
+.admin-activity-detail-item {
+  border: 1px solid #e6eaf1;
+  border-radius: 9px;
+  padding: 13px;
+  margin-bottom: 10px;
+  background: #fafbfd;
+}
+
+.admin-activity-detail-item strong {
+  display: block;
+  font-size: 12px;
+  color: #35415e;
+}
+
+.admin-activity-detail-item p {
+  margin: 7px 0 0;
+  font-size: 11px;
+  color: #7e8a9f;
+}
+
+/* Individual case progress */
+
+.admin-activity-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.admin-activity-detail-row span:first-child {
+  color: #8793a5;
+}
+
+.admin-activity-detail-row span:last-child {
+  color: #35415e;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Helpful messages */
+
+.admin-activity-message {
+  padding: 20px;
+}
+
+.admin-activity-warning {
+  padding: 12px;
+  background: #f4f6fb;
+  border-left: 3px solid #8295bf;
+}
+
+.admin-activity-details-note {
+  color: #8793a5;
+  font-size: 11px;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+
+/* Use one column on narrower screens */
+
+@media (max-width: 1100px) {
+  .admin-activity-student-layout--open {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .admin-activity-filters {
+    flex-direction: column;
+  }
+}
