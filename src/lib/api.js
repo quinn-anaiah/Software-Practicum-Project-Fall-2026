@@ -448,3 +448,7 @@ export async function fetchStudentClass(classroomId) {
 
   return payload;
 }
+
+export function fetchAdminActivity() {
+  return adminRequest("/activity");
+}

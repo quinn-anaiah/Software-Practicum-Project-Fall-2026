@@ -64,4 +64,76 @@ authRouter.post("/login", async (request, response) => {
   });
 });
 
+
+// Restore the currently logged-in user's information.
+authRouter.get("/me", async (request, response) => {
+  try {
+    // Read the login token from the request.
+    const authorization = request.get("authorization") || "";
+
+    if (!authorization.startsWith("Bearer ")) {
+      return response.status(401).json({
+        message: "Login required.",
+      });
+    }
+
+    const token = authorization.slice(7);
+
+    // Verify that the token belongs to a real user.
+    const { data: authData, error: authError } =
+      await supabase.auth.getUser(token);
+
+    if (authError || !authData.user) {
+      return response.status(401).json({
+        message: "Invalid or expired session.",
+      });
+    }
+
+    // Load their profile from Supabase.
+    const db = getSupabaseAdmin();
+
+    const { data: profile, error: profileError } = await db
+      .from("profiles")
+      .select(`
+        id,
+        first_name,
+        last_name,
+        roles:role_id(name),
+        subroles:sub_role_id(name)
+      `)
+      .eq("id", authData.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return response.status(404).json({
+        message: "User profile not found.",
+      });
+    }
+
+    const firstName = profile.first_name || "";
+    const lastName = profile.last_name || "";
+
+    // Return the same user information used during login.
+    return response.json({
+      id: profile.id,
+      email: authData.user.email,
+      firstName: firstName,
+      lastName: lastName,
+      name: `${firstName} ${lastName}`.trim(),
+      initials:
+        `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase(),
+      role: relationName(profile.roles),
+      subrole: relationName(profile.subroles),
+    });
+
+  } catch (error) {
+    console.error("Session restoration error:", error);
+
+    return response.status(500).json({
+      message: "Unable to restore session.",
+    });
+  }
+});
+
+
 export default authRouter;

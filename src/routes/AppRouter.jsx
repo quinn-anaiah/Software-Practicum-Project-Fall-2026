@@ -24,6 +24,7 @@ import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
 import StudentSubmissionPage from "../pages/StudentSubmissionPage";
 import StudentClassesPage from "../pages/StudentClassesPage";
 import StudentClassDetailPage from "../pages/StudentClassDetailPage";
+import AdminActivityPage from "../pages/AdminActivityPage";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -37,6 +38,7 @@ const routesByRole = {
       users: { path: "/admin/users", Component: AdminUserDirectoryPage },
       patients: { path: "/admin/patients", Component: AdminPatientsPage },
       patientDetail: { path: "/admin/patient", Component: AdminPatientDetailPage },
+      activity: { path: "/admin/activity", Component: AdminActivityPage },
       settings: { path: "/admin/settings", Component: SettingsPage },
     },
   },

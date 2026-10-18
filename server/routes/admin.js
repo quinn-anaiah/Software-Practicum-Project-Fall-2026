@@ -610,4 +610,252 @@ adminRouter.get("/audit-log", async (request, response) => {
   }
 });
 
+
+// ADMIN CLASSROOM AND STUDENT ACTIVITY
+// This route lets administrators VIEW activity.
+// It does not change classroom or student information.
+
+adminRouter.get("/activity", async (request, response) => {
+  try {
+    // Step 1: Make sure the user is an Admin.
+    const admin = await requireAdmin(request, response);
+
+    if (!admin) {
+      return;
+    }
+
+    // Step 2: Connect to the existing database.
+    const db = admin.supabaseAdmin;
+
+    const school = db.schema("school");
+    const learning = db.schema("learning");
+
+    // Step 3: Get all classrooms.
+    const classroomsResult = await school
+      .from("classrooms")
+      .select("id, crn, full_name, short_name, room, term, status")
+      .order("id");
+
+    if (classroomsResult.error) {
+      throw classroomsResult.error;
+    }
+
+    // Get the students enrolled in classrooms.
+    const enrollmentsResult = await school
+      .from("classroom_enrollments")
+      .select("classroom_id, student_id, status");
+
+    if (enrollmentsResult.error) {
+      throw enrollmentsResult.error;
+    }
+
+    // Get the instructors assigned to classrooms.
+    const instructorsResult = await school
+      .from("classroom_instructors")
+      .select("classroom_id, instructor_id");
+
+    if (instructorsResult.error) {
+      throw instructorsResult.error;
+    }
+
+    // Get classroom groups.
+    const groupsResult = await school
+      .from("classroom_groups")
+      .select("id, classroom_id");
+
+    if (groupsResult.error) {
+      throw groupsResult.error;
+    }
+
+    // Get user profiles so we can display names.
+    const profilesResult = await db
+      .from("profiles")
+      .select("id, first_name, last_name, roles(name)");
+
+    if (profilesResult.error) {
+      throw profilesResult.error;
+    }
+
+    // Get case assignments for students.
+    const assignmentsResult = await learning
+      .from("student_case_assignments")
+      .select("id, student_id, case_id, encounter_status, updated_at");
+
+    if (assignmentsResult.error) {
+      throw assignmentsResult.error;
+    }
+
+    // Get case titles.
+    const casesResult = await learning
+      .from("cases")
+      .select("id, title");
+
+    if (casesResult.error) {
+      throw casesResult.error;
+    }
+
+    // Get SOAP note statuses, but not the note contents.
+    const notesResult = await learning
+      .from("notes")
+      .select("id, assignment_id, status, updated_at")
+      .eq("note_type", "soap")
+      .order("updated_at", { ascending: false });
+
+    if (notesResult.error) {
+      throw notesResult.error;
+    }
+
+    // Get order information, but not medication details.
+    const ordersResult = await learning
+      .from("orders")
+      .select("id, assignment_id");
+
+    if (ordersResult.error) {
+      throw ordersResult.error;
+    }
+
+    // Step 4: Give the results shorter names.
+    const classrooms = classroomsResult.data || [];
+    const enrollments = enrollmentsResult.data || [];
+    const instructors = instructorsResult.data || [];
+    const groups = groupsResult.data || [];
+    const profiles = profilesResult.data || [];
+    const assignments = assignmentsResult.data || [];
+    const cases = casesResult.data || [];
+    const notes = notesResult.data || [];
+    const orders = ordersResult.data || [];
+
+    // This function finds a person's name using their ID.
+    function findName(userId) {
+      const person = profiles.find(
+        (profile) => profile.id === userId
+      );
+
+      if (!person) {
+        return "Unknown user";
+      }
+
+      const first = person.first_name || "";
+      const last = person.last_name || "";
+
+      return `${first} ${last}`.trim() || "Unnamed user";
+    }
+
+    // Step 5: Organize the classroom information.
+    const classroomList = classrooms.map((classroom) => {
+
+      // Find enrollments belonging to this classroom.
+      const classEnrollments = enrollments.filter(
+        (item) => item.classroom_id === classroom.id
+      );
+
+      // Find instructors belonging to this classroom.
+      const classInstructors = instructors.filter(
+        (item) => item.classroom_id === classroom.id
+      );
+
+      // Find groups belonging to this classroom.
+      const classGroups = groups.filter(
+        (item) => item.classroom_id === classroom.id
+      );
+
+      // Create a list of enrolled students.
+      const students = classEnrollments.map((enrollment) => {
+        return {
+          id: enrollment.student_id,
+          name: findName(enrollment.student_id),
+          status: enrollment.status,
+        };
+      });
+
+      return {
+        ...classroom,
+
+        students: students,
+
+        instructorNames: classInstructors.map((instructor) =>
+          findName(instructor.instructor_id)
+        ),
+
+        studentCount: classEnrollments.length,
+
+        activeStudentCount: classEnrollments.filter(
+          (item) => item.status === "active"
+        ).length,
+
+        groupCount: classGroups.length,
+      };
+    });
+
+    // Step 6: Organize the student case activity.
+    const activity = assignments.map((assignment) => {
+
+      // Find the case assigned to this student.
+      const patientCase = cases.find(
+        (item) => item.id === assignment.case_id
+      );
+
+      // Notes are sorted newest first.
+      // find() will return the most recently updated one.
+      const note = notes.find(
+        (item) => item.assignment_id === assignment.id
+      );
+
+      // Find orders for this assignment.
+      const assignmentOrders = orders.filter(
+        (item) => item.assignment_id === assignment.id
+      );
+
+      return {
+        id: assignment.id,
+        studentId: assignment.student_id,
+        studentName: findName(assignment.student_id),
+        caseTitle: patientCase?.title || "Untitled case",
+        encounterStatus:
+          assignment.encounter_status || "Not started",
+        noteStatus: note?.status || "Not started",
+        orderCount: assignmentOrders.length,
+        lastUpdated:
+          note?.updated_at || assignment.updated_at || null,
+      };
+    });
+
+    // Put recently updated case records first.
+    activity.sort((a, b) => {
+      const firstDate = a.lastUpdated || "";
+      const secondDate = b.lastUpdated || "";
+
+      return secondDate.localeCompare(firstDate);
+    });
+
+    // Step 7: Calculate totals for the overview.
+    const studentProfiles = profiles.filter(
+      (profile) => getRelationName(profile.roles) === "Student"
+    );
+
+    const metrics = {
+      classrooms: classrooms.length,
+      students: studentProfiles.length,
+      enrollments: enrollments.length,
+      assignments: assignments.length,
+      soapNotes: notes.length,
+    };
+
+    // Step 8: Send the information to React.
+    return response.json({
+      metrics: metrics,
+      classrooms: classroomList,
+      activity: activity,
+    });
+
+  } catch (error) {
+    console.error("Admin activity error:", error);
+
+    return response.status(500).json({
+      message: "Unable to load Admin activity.",
+    });
+  }
+});
+
+
 export default adminRouter;

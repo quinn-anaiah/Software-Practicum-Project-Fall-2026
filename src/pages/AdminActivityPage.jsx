@@ -1,0 +1,568 @@
+
+import { useEffect, useState } from "react";
+import { fetchAdminActivity } from "../lib/api";
+import "./AdminActivityPage.css";
+
+// Convert a database date into something readable.
+function formatDate(dateText) {
+  if (!dateText) {
+    return "Not updated";
+  }
+
+  const date = new Date(dateText);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return date.toLocaleString();
+}
+
+function AdminActivityPage() {
+
+  // Information received from the backend.
+  const [dashboard, setDashboard] = useState(null);
+
+  // Loading and error messages.
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // Classroom filter and search.
+  const [selectedClassroom, setSelectedClassroom] = useState("all");
+  const [searchText, setSearchText] = useState("");
+
+  // The student currently selected by the Admin.
+  const [selectedStudentId, setSelectedStudentId] = useState(null);
+
+  // Reload data when the Admin clicks Refresh.
+  async function loadActivity() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await fetchAdminActivity();
+      setDashboard(result);
+
+    } catch (err) {
+      setDashboard(null);
+      setError(err.message);
+
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Load activity when the page first opens.
+  useEffect(() => {
+    let isCurrent = true;
+
+    fetchAdminActivity()
+      .then((result) => {
+        if (isCurrent) {
+          setDashboard(result);
+        }
+      })
+      .catch((err) => {
+        if (isCurrent) {
+          setDashboard(null);
+          setError(err.message);
+        }
+      })
+      .finally(() => {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      });
+
+    // Prevent old requests from updating the page.
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  // Use empty arrays while waiting for the API.
+  const classrooms = dashboard?.classrooms || [];
+  const activity = dashboard?.activity || [];
+
+  const search = searchText.trim().toLowerCase();
+
+  // Filter classrooms.
+  const visibleClassrooms = classrooms.filter((classroom) => {
+    if (selectedClassroom === "all") {
+      return true;
+    }
+
+    return String(classroom.id) === selectedClassroom;
+  });
+
+  // Create the student roster from classroom enrollments.
+  const studentRoster = [];
+
+  for (const classroom of visibleClassrooms) {
+    for (const student of classroom.students) {
+
+      const matchesSearch = student.name
+        .toLowerCase()
+        .includes(search);
+
+      if (matchesSearch) {
+        studentRoster.push({
+          ...student,
+          classroomId: classroom.id,
+          classroomName: classroom.short_name,
+        });
+      }
+    }
+  }
+
+  // Find student IDs belonging to the selected classroom.
+  const classroomStudentIds = [];
+
+  for (const classroom of visibleClassrooms) {
+    for (const student of classroom.students) {
+      classroomStudentIds.push(student.id);
+    }
+  }
+
+  // Filter the case activity table.
+  const visibleActivity = activity.filter((item) => {
+    let belongsToClassroom = true;
+
+    if (selectedClassroom !== "all") {
+      belongsToClassroom = classroomStudentIds.includes(
+        item.studentId
+      );
+    }
+
+    const matchesSearch =
+      item.studentName.toLowerCase().includes(search) ||
+      item.caseTitle.toLowerCase().includes(search);
+
+    return belongsToClassroom && matchesSearch;
+  });
+
+  // Find the student selected by the Admin.
+  const selectedStudent = studentRoster.find(
+    (student) => student.id === selectedStudentId
+  );
+
+  // Find every classroom the selected student belongs to.
+  const selectedStudentClassrooms = classrooms.filter((classroom) => {
+    return classroom.students.some(
+      (student) => student.id === selectedStudentId
+    );
+  });
+
+  // Find every case assigned to the selected student.
+  const selectedStudentCases = activity.filter((item) => {
+    return item.studentId === selectedStudentId;
+  });
+
+  // Update the selected classroom.
+  function changeClassroom(event) {
+    setSelectedClassroom(event.target.value);
+
+    // Close student details when changing classrooms.
+    setSelectedStudentId(null);
+  }
+
+  return (
+    <div className="dashboard-page content-page admin-activity-page">
+
+      {/* PAGE HEADING */}
+      <section className="page-heading">
+        <div>
+          <p className="section-label">
+            Administration / System Oversight
+          </p>
+
+          <h1>Classroom & Student Activity</h1>
+
+          <p>
+            Monitor classroom enrollment and individual
+            student learning progress.
+          </p>
+        </div>
+
+        <button
+          className="secondary-button"
+          type="button"
+          onClick={loadActivity}
+          disabled={loading}
+        >
+          {loading ? "Loading..." : "Refresh"}
+        </button>
+      </section>
+
+      {/* LOADING */}
+      {loading && (
+        <section className="panel admin-activity-message">
+          Loading classroom and student activity...
+        </section>
+      )}
+
+      {/* ERROR */}
+      {error && (
+        <section className="panel directory-error" role="alert">
+          {error}
+        </section>
+      )}
+
+      {!loading && dashboard && (
+        <>
+
+          {/* FILTERS */}
+          <section className="panel admin-activity-filters">
+            <label>
+              Select Classroom
+
+              <select
+                value={selectedClassroom}
+                onChange={changeClassroom}
+              >
+                <option value="all">All Classrooms</option>
+
+                {classrooms.map((classroom) => (
+                  <option
+                    key={classroom.id}
+                    value={String(classroom.id)}
+                  >
+                    {classroom.full_name} - {classroom.term}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Search
+
+              <input
+                type="search"
+                placeholder="Search students or cases..."
+                value={searchText}
+                onChange={(event) => {
+                  setSearchText(event.target.value);
+                  setSelectedStudentId(null);
+                }}
+              />
+            </label>
+          </section>
+
+          {/* CLASSROOM TABLE */}
+          <section className="panel admin-activity-section">
+            <h2>All Classrooms</h2>
+
+            {visibleClassrooms.length === 0 ? (
+              <p>No classrooms found.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Classroom</th>
+                      <th>CRN</th>
+                      <th>Term</th>
+                      <th>Instructor</th>
+                      <th>Students</th>
+                      <th>Groups</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {visibleClassrooms.map((classroom) => (
+                      <tr key={classroom.id}>
+                        <td>
+                          <strong>{classroom.full_name}</strong>
+                          <small>{classroom.short_name}</small>
+                        </td>
+
+                        <td>{classroom.crn}</td>
+                        <td>{classroom.term}</td>
+
+                        <td>
+                          {classroom.instructorNames.join(", ") ||
+                            "Not assigned"}
+                        </td>
+
+                        <td>
+                          {classroom.studentCount}
+                          <small>
+                            {classroom.activeStudentCount} active
+                          </small>
+                        </td>
+
+                        <td>{classroom.groupCount}</td>
+
+                        <td>
+                          <span className="admin-activity-status">
+                            {classroom.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* STUDENT ROSTER AND DETAILS */}
+          <div
+            className={
+              selectedStudent
+                ? "admin-activity-student-layout admin-activity-student-layout--open"
+                : "admin-activity-student-layout"
+            }
+          >
+
+            {/* STUDENT ROSTER */}
+            <section className="panel admin-activity-section">
+              <h2>Student Roster</h2>
+
+              <p>
+                {studentRoster.length} enrollment records
+                match your filters.
+              </p>
+
+              {studentRoster.length === 0 ? (
+                <p>No enrolled students found.</p>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Classroom</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {studentRoster.map((student) => (
+                        <tr
+                          key={`${student.classroomId}-${student.id}`}
+                        >
+                          <td>
+                            <strong>{student.name}</strong>
+                          </td>
+
+                          <td>{student.classroomName}</td>
+
+                          <td>
+                            <span className="admin-activity-status">
+                              {student.status || "Unknown"}
+                            </span>
+                          </td>
+
+                          <td>
+                            <button
+                              className="admin-activity-view-button"
+                              type="button"
+                              aria-expanded={
+                                selectedStudentId === student.id
+                              }
+                              onClick={() => {
+                                setSelectedStudentId(student.id);
+                              }}
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* SELECTED STUDENT DETAILS */}
+            {selectedStudent && (
+              <aside
+                className="panel admin-activity-details"
+                aria-label="Student activity details"
+              >
+
+                <div className="admin-activity-details-header">
+                  <div>
+                    <p className="section-label">
+                      Student Activity Details
+                    </p>
+
+                    <h2>{selectedStudent.name}</h2>
+                  </div>
+
+                  <button
+                    className="admin-activity-close-button"
+                    type="button"
+                    onClick={() => {
+                      setSelectedStudentId(null);
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {/* STUDENT'S CLASSES */}
+                <div className="admin-activity-details-section">
+                  <h3>
+                    Enrolled Classrooms
+                    ({selectedStudentClassrooms.length})
+                  </h3>
+
+                  {selectedStudentClassrooms.length === 0 ? (
+                    <p>No classroom enrollments found.</p>
+                  ) : (
+                    selectedStudentClassrooms.map((classroom) => {
+
+                      const enrollment = classroom.students.find(
+                        (student) => student.id === selectedStudentId
+                      );
+
+                      return (
+                        <div
+                          className="admin-activity-detail-item"
+                          key={classroom.id}
+                        >
+                          <strong>{classroom.full_name}</strong>
+
+                          <p>
+                            {classroom.short_name} · {classroom.term}
+                          </p>
+
+                          <p>
+                            Enrollment: {enrollment?.status || "Unknown"}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* STUDENT'S CASES */}
+                <div className="admin-activity-details-section">
+                  <h3>
+                    Assigned Cases ({selectedStudentCases.length})
+                  </h3>
+
+                  {selectedStudentCases.length === 0 ? (
+                    <p>
+                      This student has no assigned cases.
+                    </p>
+                  ) : (
+                    selectedStudentCases.map((item) => (
+                      <div
+                        className="admin-activity-detail-item"
+                        key={item.id}
+                      >
+                        <strong>{item.caseTitle}</strong>
+
+                        <div className="admin-activity-detail-row">
+                          <span>Encounter</span>
+                          <span>{item.encounterStatus}</span>
+                        </div>
+
+                        <div className="admin-activity-detail-row">
+                          <span>SOAP Note</span>
+                          <span>{item.noteStatus}</span>
+                        </div>
+
+                        <div className="admin-activity-detail-row">
+                          <span>Orders</span>
+                          <span>{item.orderCount}</span>
+                        </div>
+
+                        <div className="admin-activity-detail-row">
+                          <span>Updated</span>
+                          <span>{formatDate(item.lastUpdated)}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <p className="admin-activity-details-note">
+                  This panel displays current learning progress.
+                  It does not display SOAP note contents,
+                  patient medical records, or grades.
+                </p>
+
+              </aside>
+            )}
+
+          </div>
+
+          {/* ALL STUDENT CASE ACTIVITY */}
+          <section className="panel admin-activity-section">
+            <h2>Student Case Activity</h2>
+
+            <p>
+              Current encounter and SOAP documentation progress.
+            </p>
+
+            {selectedClassroom !== "all" && (
+              <p className="admin-activity-warning">
+                Case assignments are linked to students,
+                not directly to classrooms. These records
+                include all cases belonging to students
+                enrolled in the selected classroom.
+              </p>
+            )}
+
+            {visibleActivity.length === 0 ? (
+              <p>No student case activity found.</p>
+            ) : (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Case</th>
+                      <th>Encounter</th>
+                      <th>SOAP Note</th>
+                      <th>Orders</th>
+                      <th>Last Updated</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {visibleActivity.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>{item.studentName}</strong>
+                        </td>
+
+                        <td>{item.caseTitle}</td>
+
+                        <td>
+                          <span className="admin-activity-status">
+                            {item.encounterStatus}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className="admin-activity-status">
+                            {item.noteStatus}
+                          </span>
+                        </td>
+
+                        <td>{item.orderCount}</td>
+
+                        <td>{formatDate(item.lastUpdated)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+        </>
+      )}
+    </div>
+  );
+}
+
+export default AdminActivityPage;
