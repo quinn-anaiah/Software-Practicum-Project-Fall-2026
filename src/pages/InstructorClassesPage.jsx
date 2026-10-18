@@ -1,29 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   addInstructorGroupMembers,
-  createInstructorClassroom,
   createInstructorClassroomGroup,
-  fetchEligibleInstructorStudents,
   fetchInstructorClassroom,
   fetchInstructorClassrooms,
 } from "../lib/api";
-
-const emptyForm = {
-  crn: "",
-  fullName: "",
-  shortName: "",
-  room: "",
-  term: "Fall 2026",
-};
 
 function InstructorClassesPage({ user }) {
   const [classrooms, setClassrooms] = useState([]);
   const [classroomId, setClassroomId] = useState("");
   const [classroomDetail, setClassroomDetail] = useState(null);
-  const [eligibleStudents, setEligibleStudents] = useState([]);
-  const [form, setForm] = useState(emptyForm);
-  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isGroupOpen, setIsGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedGroupStudentIds, setSelectedGroupStudentIds] = useState([]);
@@ -35,25 +21,15 @@ function InstructorClassesPage({ user }) {
   const [notice, setNotice] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  async function loadClassrooms(selectId = "") {
-    const result = await fetchInstructorClassrooms();
-    setClassrooms(result.classrooms);
-    setClassroomId(selectId || result.classrooms[0]?.id || "");
-  }
-
   useEffect(() => {
     let isCurrent = true;
     async function load() {
       setStatus("loading");
       try {
-        const [classroomResult, studentResult] = await Promise.all([
-          fetchInstructorClassrooms(),
-          fetchEligibleInstructorStudents(),
-        ]);
+        const classroomResult = await fetchInstructorClassrooms();
         if (!isCurrent) return;
         setClassrooms(classroomResult.classrooms);
         setClassroomId(classroomResult.classrooms[0]?.id || "");
-        setEligibleStudents(studentResult.students);
         setStatus("ready");
       } catch (loadError) {
         if (!isCurrent) return;
@@ -81,41 +57,6 @@ function InstructorClassesPage({ user }) {
     loadDetail();
     return () => { isCurrent = false; };
   }, [classroomId]);
-
-  function updateField(event) {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  }
-
-  function toggleStudent(studentId) {
-    setSelectedStudentIds((current) =>
-      current.includes(studentId)
-        ? current.filter((id) => id !== studentId)
-        : [...current, studentId],
-    );
-  }
-
-  async function handleCreate(event) {
-    event.preventDefault();
-    setError("");
-    setNotice("");
-    setIsSaving(true);
-    try {
-      const result = await createInstructorClassroom({
-        ...form,
-        studentIds: selectedStudentIds,
-      });
-      await loadClassrooms(result.classroom.id);
-      setForm(emptyForm);
-      setSelectedStudentIds([]);
-      setIsCreateOpen(false);
-      setNotice(result.message);
-    } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Unable to create classroom.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
 
   function toggleGroupStudent(studentId) {
     setSelectedGroupStudentIds((current) =>
@@ -195,19 +136,9 @@ function InstructorClassesPage({ user }) {
         <div>
           <p className="section-label">Instructor workspace · classes</p>
           <h1>Classes & case assignments</h1>
-          <p>
-            Create {user.subrole || "discipline"} classrooms and enroll only
-            students whose subrole matches yours.
-          </p>
+          <p>Review your assigned {user.subrole || "discipline"} classrooms, manage learning teams, and prepare students for scenarios.</p>
         </div>
-        <button
-          className="primary-button directory-create-button"
-          disabled={!user.subrole}
-          onClick={() => setIsCreateOpen(true)}
-          type="button"
-        >
-          + Create class
-        </button>
+        <span className="preview-label">Classrooms are created by administrators</span>
       </section>
 
       {(error || notice) && (
@@ -218,48 +149,7 @@ function InstructorClassesPage({ user }) {
 
       {!user.subrole && (
         <section className="panel discipline-notice">
-          Your profile needs an assigned subrole before you can create a classroom.
-        </section>
-      )}
-
-      {isCreateOpen && (
-        <section className="panel create-class-panel">
-          <div className="panel__header">
-            <div>
-              <p className="section-label">New classroom · {user.subrole}</p>
-              <h2>Create a classroom</h2>
-            </div>
-            <button aria-label="Close classroom form" className="row-action" onClick={() => setIsCreateOpen(false)} type="button">×</button>
-          </div>
-          <form className="create-class-form" onSubmit={handleCreate}>
-            <div className="classroom-fields">
-              <label>CRN<input name="crn" onChange={updateField} required value={form.crn} /></label>
-              <label>Full name<input name="fullName" onChange={updateField} placeholder={`e.g. ${user.subrole} Foundations`} required value={form.fullName} /></label>
-              <label>Short name<input name="shortName" onChange={updateField} placeholder="e.g. PT Foundations" required value={form.shortName} /></label>
-              <label>Room<input name="room" onChange={updateField} placeholder="e.g. HSSN 210" value={form.room} /></label>
-              <label>Term<input name="term" onChange={updateField} required value={form.term} /></label>
-            </div>
-            <div>
-              <p className="section-label">Eligible learners</p>
-              <p className="create-class-form__hint">
-                Only Students with the <strong>{user.subrole}</strong> subrole are shown.
-              </p>
-              <div className="eligible-learner-list">
-                {eligibleStudents.map((student) => (
-                  <label key={student.id}>
-                    <input checked={selectedStudentIds.includes(student.id)} onChange={() => toggleStudent(student.id)} type="checkbox" />
-                    <span>{student.name}</span>
-                    <small>{student.subrole}</small>
-                  </label>
-                ))}
-                {!eligibleStudents.length && <p className="directory-loading">No eligible students are available.</p>}
-              </div>
-            </div>
-            <div className="admin-form__actions">
-              <button className="secondary-button" onClick={() => setIsCreateOpen(false)} type="button">Cancel</button>
-              <button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Creating…" : "Create class"}</button>
-            </div>
-          </form>
+          Your profile needs an assigned subrole before you can access assigned classrooms.
         </section>
       )}
 
@@ -269,8 +159,8 @@ function InstructorClassesPage({ user }) {
       {status === "ready" && !classrooms.length && (
         <section className="panel empty-state">
           <p className="section-label">No classrooms yet</p>
-          <h2>Create your first {user.subrole} classroom</h2>
-          <p>Add the course details and select eligible students to begin building a roster.</p>
+          <h2>No classrooms are assigned yet</h2>
+          <p>Ask an administrator to create the classroom and assign you as its instructor.</p>
         </section>
       )}
 

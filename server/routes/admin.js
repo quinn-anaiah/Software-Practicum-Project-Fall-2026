@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes, randomInt } from "node:crypto";
 import { getSupabaseAdmin, supabase } from "../services/supabase.js";
 
 const adminRouter = Router();
@@ -49,6 +50,21 @@ function getDisplayName(profile, fallbackUser) {
   const firstName = profile?.first_name || fallbackUser?.user_metadata?.first_name || "";
   const lastName = profile?.last_name || fallbackUser?.user_metadata?.last_name || "";
   return `${firstName} ${lastName}`.trim() || "Unnamed user";
+}
+
+function makeCareflowEmail(firstName, lastName) {
+  const localPart = `${firstName}.${lastName}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9.]+/g, ".")
+    .replace(/^\.+|\.+$/g, "");
+  const suffix = randomInt(100000, 1000000);
+  return `${localPart || "student"}.${suffix}@careflow.test`;
+}
+
+function generateTemporaryPassword() {
+  return `Cf!${randomBytes(18).toString("base64url")}9a`;
 }
 
 async function writeAuditLog(supabaseAdmin, entry) {
@@ -385,6 +401,211 @@ adminRouter.get("/access-options", async (request, response) => {
   } catch (error) {
     console.error("Unable to load access options:", error);
     return response.status(500).json({ message: "Unable to load access options." });
+  }
+});
+
+adminRouter.get("/academics", async (request, response) => {
+  try {
+    const context = await requireAdmin(request, response);
+    if (!context) return;
+    const { supabaseAdmin } = context;
+    const school = supabaseAdmin.schema("school");
+    const [{ data: classrooms, error: classroomError }, { data: memberships, error: membershipError }, { data: enrollments, error: enrollmentError }, { data: profiles, error: profileError }, { data: subroles, error: subroleError }] = await Promise.all([
+      school.from("classrooms").select("id, crn, full_name, short_name, room, term, discipline_subrole_id, status").order("term", { ascending: false }),
+      school.from("classroom_instructors").select("classroom_id, instructor_id, access_level"),
+      school.from("classroom_enrollments").select("classroom_id, student_id, status").eq("status", "active"),
+      supabaseAdmin.from("profiles").select("id, first_name, last_name, role_id, sub_role_id, roles(name), subroles(name)"),
+      supabaseAdmin.from("subroles").select("id, name").order("name"),
+    ]);
+    if (classroomError || membershipError || enrollmentError || profileError || subroleError) throw classroomError || membershipError || enrollmentError || profileError || subroleError;
+    const profileById = new Map((profiles || []).map((profile) => [profile.id, profile]));
+    const instructorsByClass = new Map();
+    (memberships || []).forEach((membership) => {
+      const current = instructorsByClass.get(membership.classroom_id) || [];
+      const profile = profileById.get(membership.instructor_id);
+      if (profile) current.push({ id: profile.id, name: `${profile.first_name} ${profile.last_name}`.trim(), subrole: getRelationName(profile.subroles), accessLevel: membership.access_level });
+      instructorsByClass.set(membership.classroom_id, current);
+    });
+    const enrollmentCounts = (enrollments || []).reduce((counts, row) => ({ ...counts, [row.classroom_id]: (counts[row.classroom_id] || 0) + 1 }), {});
+    const subroleById = new Map((subroles || []).map((subrole) => [subrole.id, subrole.name]));
+    return response.json({
+      semesters: [...new Set((classrooms || []).map((classroom) => classroom.term))],
+      classrooms: (classrooms || []).map((classroom) => ({ ...classroom, discipline: subroleById.get(classroom.discipline_subrole_id) || "Unassigned", instructors: instructorsByClass.get(classroom.id) || [], studentCount: enrollmentCounts[classroom.id] || 0 })),
+      students: (profiles || []).filter((profile) => getRelationName(profile.roles) === "Student").map((profile) => ({ id: profile.id, name: `${profile.first_name} ${profile.last_name}`.trim(), subrole: getRelationName(profile.subroles), utepId: profile.utep_id || null })),
+      instructors: (profiles || []).filter((profile) => getRelationName(profile.roles) === "Instructor").map((profile) => ({ id: profile.id, name: `${profile.first_name} ${profile.last_name}`.trim(), subroleId: profile.sub_role_id, subrole: getRelationName(profile.subroles) })),
+      subroles: subroles || [],
+    });
+  } catch (error) {
+    console.error("Unable to load academic administration:", error);
+    return response.status(500).json({ message: "Unable to load classroom administration." });
+  }
+});
+
+adminRouter.post("/academics/classrooms", async (request, response) => {
+  const crn = String(request.body.crn || "").trim();
+  const fullName = String(request.body.fullName || "").trim();
+  const shortName = String(request.body.shortName || "").trim();
+  const room = String(request.body.room || "").trim() || null;
+  const term = String(request.body.term || "").trim();
+  const disciplineSubroleId = Number(request.body.disciplineSubroleId);
+  const instructorId = String(request.body.instructorId || "").trim();
+
+  if (!crn || !fullName || !shortName || !term || !disciplineSubroleId) {
+    return response.status(400).json({ message: "CRN, class names, term, and discipline are required." });
+  }
+
+  try {
+    const context = await requireAdmin(request, response);
+    if (!context) return;
+    const { supabaseAdmin, actor } = context;
+    if (!(await ensureAuditLogReady(supabaseAdmin, response))) return;
+    const school = supabaseAdmin.schema("school");
+    const { data: discipline, error: disciplineError } = await supabaseAdmin
+      .from("subroles")
+      .select("id, name")
+      .eq("id", disciplineSubroleId)
+      .single();
+    if (disciplineError || !discipline) {
+      return response.status(400).json({ message: "Choose a valid discipline." });
+    }
+
+    if (instructorId) {
+      const { data: instructor, error: instructorError } = await supabaseAdmin
+        .from("profiles")
+        .select("id, sub_role_id, roles(name)")
+        .eq("id", instructorId)
+        .single();
+      if (instructorError || getRelationName(instructor?.roles) !== "Instructor" || instructor.sub_role_id !== disciplineSubroleId) {
+        return response.status(400).json({ message: "Choose an Instructor with the same discipline as this classroom." });
+      }
+    }
+
+    const { data: classroom, error: classroomError } = await school
+      .from("classrooms")
+      .insert({ crn, full_name: fullName, short_name: shortName, room, term, discipline_subrole_id: disciplineSubroleId, created_by: actor.id, status: "active" })
+      .select("id, crn, full_name, short_name, room, term, discipline_subrole_id, status")
+      .single();
+    if (classroomError) {
+      if (classroomError.code === "23505") return response.status(400).json({ message: "A classroom with that CRN already exists." });
+      throw classroomError;
+    }
+
+    if (instructorId) {
+      const { error: membershipError } = await school.from("classroom_instructors").insert({
+        classroom_id: classroom.id,
+        instructor_id: instructorId,
+        access_level: "owner",
+      });
+      if (membershipError) throw membershipError;
+    }
+
+    await writeAuditLog(supabaseAdmin, {
+      actor_id: actor.id,
+      action: "classroom.created",
+      details: { classroomId: classroom.id, crn, term, discipline: discipline.name, instructorId: instructorId || null },
+    });
+    return response.status(201).json({ classroom, message: "Classroom created." });
+  } catch (error) {
+    console.error("Unable to create classroom:", error);
+    return response.status(500).json({ message: error.message || "Unable to create classroom." });
+  }
+});
+
+adminRouter.post("/students/bulk-invite", async (request, response) => {
+  const students = Array.isArray(request.body.students) ? request.body.students.slice(0, 100) : [];
+  if (!students.length) return response.status(400).json({ message: "Add at least one student before creating accounts." });
+
+  try {
+    const context = await requireAdmin(request, response);
+    if (!context) return;
+    const { supabaseAdmin, actor } = context;
+    if (!(await ensureAuditLogReady(supabaseAdmin, response))) return;
+    const [{ data: studentRole, error: roleError }, { data: subroles, error: subroleError }] = await Promise.all([
+      supabaseAdmin.from("roles").select("id").eq("name", "Student").single(),
+      supabaseAdmin.from("subroles").select("id, name"),
+    ]);
+    if (roleError || !studentRole || subroleError) throw roleError || subroleError || new Error("Student role is not configured.");
+    const allowedSubroleIds = new Set((subroles || []).map((subrole) => subrole.id));
+    const created = [];
+    const failed = [];
+
+    for (const entry of students) {
+      const firstName = String(entry.firstName || "").trim();
+      const lastName = String(entry.lastName || "").trim();
+      const utepId = String(entry.utepId || "").trim() || null;
+      const subroleId = Number(entry.subroleId);
+      if (!firstName || !lastName || !allowedSubroleIds.has(subroleId)) {
+        failed.push({ name: `${firstName} ${lastName}`.trim() || "Unnamed student", message: "A first name, last name, and discipline are required." });
+        continue;
+      }
+      const temporaryPassword = generateTemporaryPassword();
+      let email = "";
+      let authData = null;
+      let authError = null;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        email = makeCareflowEmail(firstName, lastName);
+        const result = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: {
+            first_name: firstName,
+            last_name: lastName,
+            display_name: `${firstName} ${lastName}`,
+            must_change_password: true,
+          },
+        });
+        authData = result.data;
+        authError = result.error;
+        if (!authError || !/already registered|already exists|duplicate/i.test(authError.message || "")) break;
+      }
+      if (authError || !authData?.user) {
+        failed.push({ name: `${firstName} ${lastName}`, message: authError?.message || "Unable to create the Auth account." });
+        continue;
+      }
+      const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+        id: authData.user.id,
+        first_name: firstName,
+        last_name: lastName,
+        utep_id: utepId,
+        role_id: studentRole.id,
+        sub_role_id: subroleId,
+      });
+      if (profileError) {
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+        failed.push({ name: `${firstName} ${lastName}`, message: profileError.message });
+        continue;
+      }
+      await writeAuditLog(supabaseAdmin, { actor_id: actor.id, target_user_id: authData.user.id, action: "student.bulk_invited", details: { email, subroleId } });
+      created.push({ id: authData.user.id, name: `${firstName} ${lastName}`, email, temporaryPassword });
+    }
+    return response.status(201).json({ created, failed, message: `${created.length} student account${created.length === 1 ? "" : "s"} created.` });
+  } catch (error) {
+    console.error("Unable to bulk invite students:", error);
+    return response.status(500).json({ message: error.message || "Unable to create student accounts." });
+  }
+});
+
+adminRouter.post("/academics/classrooms/:classroomId/instructors", async (request, response) => {
+  try {
+    const context = await requireAdmin(request, response);
+    if (!context) return;
+    const instructorId = String(request.body.instructorId || "");
+    const school = context.supabaseAdmin.schema("school");
+    const [{ data: classroom, error: classroomError }, { data: profile, error: profileError }] = await Promise.all([
+      school.from("classrooms").select("id, discipline_subrole_id").eq("id", request.params.classroomId).single(),
+      context.supabaseAdmin.from("profiles").select("id, sub_role_id, roles(name)").eq("id", instructorId).single(),
+    ]);
+    if (classroomError || profileError || getRelationName(profile?.roles) !== "Instructor" || profile.sub_role_id !== classroom.discipline_subrole_id) {
+      return response.status(400).json({ message: "Choose an Instructor with the same discipline as this classroom." });
+    }
+    const { error } = await school.from("classroom_instructors").insert({ classroom_id: classroom.id, instructor_id: profile.id, access_level: "co_instructor" });
+    if (error?.code === "23505") return response.status(400).json({ message: "This Instructor is already assigned to the classroom." });
+    if (error) throw error;
+    return response.status(201).json({ message: "Instructor assigned to classroom." });
+  } catch (error) {
+    console.error("Unable to assign instructor:", error);
+    return response.status(500).json({ message: "Unable to assign instructor." });
   }
 });
 

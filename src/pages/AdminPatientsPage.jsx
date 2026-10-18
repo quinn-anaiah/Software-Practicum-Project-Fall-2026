@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
+import Pagination from "../components/Pagination";
 import { fetchAdminPatients } from "../lib/api";
 
 function AdminPatientsPage() {
@@ -11,6 +12,7 @@ function AdminPatientsPage() {
 
   // Stores what the Admin types into the search box.
   const [searchText, setSearchText] = useState("");
+  const [patientPage, setPatientPage] = useState(1);
 
   // Helps us show a loading message while waiting for Supabase.
   const [isLoading, setIsLoading] = useState(true);
@@ -79,13 +81,20 @@ function AdminPatientsPage() {
   }
 
   const filteredPatients = getFilteredPatients();
+  const patientsPerPage = 10;
+  const visiblePatients = filteredPatients.slice(
+    (patientPage - 1) * patientsPerPage,
+    patientPage * patientsPerPage,
+  );
 
   function handleSearchChange(event) {
     setSearchText(event.target.value);
+    setPatientPage(1);
   }
 
   function clearSearch() {
     setSearchText("");
+    setPatientPage(1);
   }
 
   function getInitials(name) {
@@ -165,8 +174,9 @@ function AdminPatientsPage() {
         )}
 
         {!isLoading && !error && (
-          <div className="table-wrap">
-            <table>
+          <>
+            <div className="table-wrap admin-scroll-table">
+              <table>
               <thead>
                 <tr>
                   <th>Patient</th>
@@ -186,7 +196,7 @@ function AdminPatientsPage() {
                   </tr>
                 )}
 
-                {filteredPatients.map((patient) => (
+                {visiblePatients.map((patient) => (
                   <tr key={patient.id}>
                     <td>
                       <span className="patient-avatar patient-avatar--blue">
@@ -226,8 +236,16 @@ function AdminPatientsPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <Pagination
+              currentPage={patientPage}
+              itemLabel="patients"
+              onPageChange={setPatientPage}
+              pageSize={patientsPerPage}
+              totalItems={filteredPatients.length}
+            />
+          </>
         )}
       </section>
     </div>

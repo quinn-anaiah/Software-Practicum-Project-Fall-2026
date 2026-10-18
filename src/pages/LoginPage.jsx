@@ -155,7 +155,7 @@ async function handleSubmit(event) {
             <span>Patient: avery.morgan@careflow.test</span>
             <span>Password: Admin123</span>
           </div>
-          <section className="database-status" aria-live="polite">
+          {/*<section className="database-status" aria-live="polite">
             <strong>Supabase role lookup</strong>
             {rolesStatus === "loading" && <span>Loading roles…</span>}
             {rolesStatus === "ready" && (
@@ -174,7 +174,7 @@ async function handleSubmit(event) {
                 <code>{rolesError}</code>
               </>
             )}
-          </section>
+          </section>*/}
           <p className="auth-switch">
             Need a Student account? <Link to="/register">Register now</Link>
           </p>
