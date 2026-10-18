@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes, randomInt } from "node:crypto";
 import { getSupabaseAdmin, supabase } from "../services/supabase.js";
 
 const adminRouter = Router();
@@ -58,7 +59,12 @@ function makeCareflowEmail(firstName, lastName) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9.]+/g, ".")
     .replace(/^\.+|\.+$/g, "");
-  return `${localPart || "student"}@careflow.test`;
+  const suffix = randomInt(100000, 1000000);
+  return `${localPart || "student"}.${suffix}@careflow.test`;
+}
+
+function generateTemporaryPassword() {
+  return `Cf!${randomBytes(18).toString("base64url")}9a`;
 }
 
 async function writeAuditLog(supabaseAdmin, entry) {
@@ -528,17 +534,33 @@ adminRouter.post("/students/bulk-invite", async (request, response) => {
       const lastName = String(entry.lastName || "").trim();
       const utepId = String(entry.utepId || "").trim() || null;
       const subroleId = Number(entry.subroleId);
-      const email = makeCareflowEmail(firstName, lastName);
       if (!firstName || !lastName || !allowedSubroleIds.has(subroleId)) {
         failed.push({ name: `${firstName} ${lastName}`.trim() || "Unnamed student", message: "A first name, last name, and discipline are required." });
         continue;
       }
-      const { data: authData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        data: { first_name: firstName, last_name: lastName, display_name: `${firstName} ${lastName}` },
-        redirectTo: process.env.APP_URL || "http://localhost:5173/set-password",
-      });
-      if (inviteError || !authData.user) {
-        failed.push({ name: `${firstName} ${lastName}`, message: inviteError?.message || "Unable to create the Auth account." });
+      const temporaryPassword = generateTemporaryPassword();
+      let email = "";
+      let authData = null;
+      let authError = null;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        email = makeCareflowEmail(firstName, lastName);
+        const result = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: temporaryPassword,
+          email_confirm: true,
+          user_metadata: {
+            first_name: firstName,
+            last_name: lastName,
+            display_name: `${firstName} ${lastName}`,
+            must_change_password: true,
+          },
+        });
+        authData = result.data;
+        authError = result.error;
+        if (!authError || !/already registered|already exists|duplicate/i.test(authError.message || "")) break;
+      }
+      if (authError || !authData?.user) {
+        failed.push({ name: `${firstName} ${lastName}`, message: authError?.message || "Unable to create the Auth account." });
         continue;
       }
       const { error: profileError } = await supabaseAdmin.from("profiles").insert({
@@ -555,7 +577,7 @@ adminRouter.post("/students/bulk-invite", async (request, response) => {
         continue;
       }
       await writeAuditLog(supabaseAdmin, { actor_id: actor.id, target_user_id: authData.user.id, action: "student.bulk_invited", details: { email, subroleId } });
-      created.push({ id: authData.user.id, name: `${firstName} ${lastName}`, email });
+      created.push({ id: authData.user.id, name: `${firstName} ${lastName}`, email, temporaryPassword });
     }
     return response.status(201).json({ created, failed, message: `${created.length} student account${created.length === 1 ? "" : "s"} created.` });
   } catch (error) {

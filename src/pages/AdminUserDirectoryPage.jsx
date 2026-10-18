@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../components/Icon";
+import Pagination from "../components/Pagination";
 import {
   fetchAdminAccessOptions,
   fetchAdminAuditLog,
@@ -26,6 +27,7 @@ function AdminUserDirectoryPage() {
   const [status, setStatus] = useState("loading");
   const [error, setError] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [userPage, setUserPage] = useState(1);
   const [accessOptions, setAccessOptions] = useState({ roles: [], subroles: [] });
   const [auditEntries, setAuditEntries] = useState([]);
   const [managementError, setManagementError] = useState("");
@@ -124,7 +126,14 @@ function AdminUserDirectoryPage() {
   function handleSearch(event) {
     event.preventDefault();
     setActiveQuery(queryInput.trim());
+    setUserPage(1);
   }
+
+  const usersPerPage = 10;
+  const visibleUsers = directory.users.slice(
+    (userPage - 1) * usersPerPage,
+    userPage * usersPerPage,
+  );
 
   async function refreshManagement() {
     const [users, audit] = await Promise.all([
@@ -327,8 +336,9 @@ function AdminUserDirectoryPage() {
           ) : directory.users.length === 0 ? (
             <p className="directory-loading">No user records match this search.</p>
           ) : (
-            <div className="table-wrap">
-              <table>
+            <>
+              <div className="table-wrap admin-scroll-table">
+                <table>
                 <thead>
                   <tr>
                     <th>User</th>
@@ -339,7 +349,7 @@ function AdminUserDirectoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {directory.users.map((user) => (
+                  {visibleUsers.map((user) => (
                     <tr
                       className={
                         selectedUser?.id === user.id
@@ -372,8 +382,16 @@ function AdminUserDirectoryPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+              <Pagination
+                currentPage={userPage}
+                itemLabel="accounts"
+                onPageChange={setUserPage}
+                pageSize={usersPerPage}
+                totalItems={directory.users.length}
+              />
+            </>
           )}
         </article>
 

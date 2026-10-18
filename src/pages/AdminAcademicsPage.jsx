@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Icon from "../components/Icon";
+import Pagination from "../components/Pagination";
 import {
   assignAdminClassroomInstructor,
   bulkInviteStudents,
@@ -34,6 +35,8 @@ function AdminAcademicsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("all");
+  const [classroomPage, setClassroomPage] = useState(1);
+  const [studentPage, setStudentPage] = useState(1);
   const [selectedClassroomId, setSelectedClassroomId] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -41,6 +44,7 @@ function AdminAcademicsPage() {
   const [classroomForm, setClassroomForm] = useState(initialClassroom);
   const [bulkRows, setBulkRows] = useState("");
   const [bulkSubroleId, setBulkSubroleId] = useState("");
+  const [temporaryCredentials, setTemporaryCredentials] = useState([]);
   const [instructorId, setInstructorId] = useState("");
 
   async function loadAcademics() {
@@ -71,6 +75,16 @@ function AdminAcademicsPage() {
   const visibleClassrooms = useMemo(
     () => academics.classrooms.filter((classroom) => selectedTerm === "all" || classroom.term === selectedTerm),
     [academics.classrooms, selectedTerm],
+  );
+  const classroomsPerPage = 8;
+  const studentsPerPage = 10;
+  const paginatedClassrooms = visibleClassrooms.slice(
+    (classroomPage - 1) * classroomsPerPage,
+    classroomPage * classroomsPerPage,
+  );
+  const paginatedStudents = academics.students.slice(
+    (studentPage - 1) * studentsPerPage,
+    studentPage * studentsPerPage,
   );
   const selectedClassroom = academics.classrooms.find((classroom) => classroom.id === selectedClassroomId) || visibleClassrooms[0];
   const matchingInstructors = academics.instructors.filter(
@@ -123,6 +137,7 @@ function AdminAcademicsPage() {
     runAction(async () => {
       const result = await bulkInviteStudents(students);
       setBulkRows("");
+      setTemporaryCredentials(result.created || []);
       if (result.failed?.length) {
         return {
           ...result,
@@ -161,6 +176,27 @@ function AdminAcademicsPage() {
 
       {(error || notice) && <section className={`panel directory-action-message ${error ? "directory-error" : "directory-success"}`} role="status">{error || notice}</section>}
 
+      {temporaryCredentials.length > 0 && (
+        <section className="panel temporary-credentials-panel">
+          <div className="panel__header">
+            <div>
+              <p className="section-label">One-time secure handoff</p>
+              <h2>Temporary student passwords</h2>
+            </div>
+            <button aria-label="Hide temporary passwords" className="row-action" onClick={() => setTemporaryCredentials([])} type="button">×</button>
+          </div>
+          <p>Record these now. Careflow cannot show the passwords again after this panel is closed or refreshed. Students should change them after their first sign-in.</p>
+          <div className="temporary-credentials-list">
+            {temporaryCredentials.map((credential) => (
+              <div key={credential.id}>
+                <span><strong>{credential.name}</strong><small>{credential.email}</small></span>
+                <code>{credential.temporaryPassword}</code>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="directory-metrics admin-academics-metrics">
         <article className="panel"><span>Semesters on file</span><strong>{academics.semesters.length}</strong><small>All configured terms</small></article>
         <article className="panel"><span>Active classrooms</span><strong>{activeClassrooms}</strong><small>Currently available courses</small></article>
@@ -190,7 +226,7 @@ function AdminAcademicsPage() {
           <form className="bulk-student-form" onSubmit={submitBulkStudents}>
             <label>Discipline<select onChange={(event) => setBulkSubroleId(event.target.value)} required value={bulkSubroleId}><option value="">Choose discipline</option>{academics.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}</select></label>
             <label>Student rows <span>One per line: First name, Last name, UTEP ID (optional)</span><textarea onChange={(event) => setBulkRows(event.target.value)} placeholder={"Avery, Morgan, 80123456\nElena, Rivera, 80123457"} required value={bulkRows} /></label>
-            <p className="bulk-student-form__hint">Careflow creates <strong>first.last@careflow.test</strong> accounts and sends secure password setup invitations. Duplicate names need a unique email handled individually in Global user search.</p>
+            <p className="bulk-student-form__hint">Careflow creates unique <strong>first.last.123456@careflow.test</strong> accounts with a temporary password shown once after creation.</p>
             <div className="admin-form__actions"><button className="secondary-button" onClick={() => setIsBulkOpen(false)} type="button">Cancel</button><button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Creating accounts…" : "Create student accounts"}</button></div>
           </form>
         </section>
@@ -198,7 +234,7 @@ function AdminAcademicsPage() {
 
       <section className="admin-academics-toolbar panel">
         <div><p className="section-label">Classroom directory</p><h2>Current academic roster</h2></div>
-        <label>Semester<select onChange={(event) => setSelectedTerm(event.target.value)} value={selectedTerm}><option value="all">All semesters</option>{academics.semesters.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
+        <label>Semester<select onChange={(event) => { setSelectedTerm(event.target.value); setClassroomPage(1); }} value={selectedTerm}><option value="all">All semesters</option>{academics.semesters.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
       </section>
 
       {status === "loading" && <section className="panel directory-loading">Loading academic information…</section>}
@@ -206,10 +242,11 @@ function AdminAcademicsPage() {
       {status === "ready" && (
         <section className="directory-layout admin-academics-layout">
           <article className="panel directory-table-panel">
-            <div className="academic-class-list">
-              {visibleClassrooms.map((classroom) => <button className={selectedClassroom?.id === classroom.id ? "academic-class-row academic-class-row--selected" : "academic-class-row"} key={classroom.id} onClick={() => setSelectedClassroomId(classroom.id)} type="button"><div><strong>{classroom.short_name}</strong><small>{classroom.full_name}</small></div><span>{classroom.term}</span><span>{classroom.discipline}</span><span>{classroom.studentCount} students</span></button>)}
+            <div className="academic-class-list admin-scroll-list">
+              {paginatedClassrooms.map((classroom) => <button className={selectedClassroom?.id === classroom.id ? "academic-class-row academic-class-row--selected" : "academic-class-row"} key={classroom.id} onClick={() => setSelectedClassroomId(classroom.id)} type="button"><div><strong>{classroom.short_name}</strong><small>{classroom.full_name}</small></div><span>{classroom.term}</span><span>{classroom.discipline}</span><span>{classroom.studentCount} students</span></button>)}
               {!visibleClassrooms.length && <p className="directory-loading">No classrooms match this semester.</p>}
             </div>
+            <Pagination currentPage={classroomPage} itemLabel="classrooms" onPageChange={setClassroomPage} pageSize={classroomsPerPage} totalItems={visibleClassrooms.length} />
           </article>
           <aside className="directory-sidebar">
             <article className="panel academic-detail-panel">
@@ -221,7 +258,7 @@ function AdminAcademicsPage() {
                 <form className="admin-form admin-form--compact" onSubmit={submitInstructor}><p className="section-label">Assign instructor</p><select onChange={(event) => setInstructorId(event.target.value)} required value={instructorId}><option value="">Choose {selectedClassroom.discipline} instructor</option>{matchingInstructors.filter((instructor) => !selectedClassroom.instructors.some((assigned) => assigned.id === instructor.id)).map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}</select><button className="secondary-button" disabled={isSaving || !matchingInstructors.length} type="submit">Assign instructor</button></form>
               </> : <p className="directory-loading">Choose a classroom to review it.</p>}
             </article>
-            <article className="panel academic-student-panel"><p className="section-label">Student directory</p><h2>All students</h2><div>{academics.students.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!academics.students.length && <p className="directory-loading">No student profiles yet.</p>}</div></article>
+            <article className="panel academic-student-panel"><p className="section-label">Student directory</p><h2>All students</h2><div className="admin-scroll-list">{paginatedStudents.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!academics.students.length && <p className="directory-loading">No student profiles yet.</p>}</div><Pagination currentPage={studentPage} itemLabel="students" onPageChange={setStudentPage} pageSize={studentsPerPage} totalItems={academics.students.length} /></article>
           </aside>
         </section>
       )}
