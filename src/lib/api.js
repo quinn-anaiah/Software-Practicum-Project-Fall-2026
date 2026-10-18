@@ -132,6 +132,31 @@ export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
 
+export function fetchAdminAcademics() {
+  return adminRequest("/academics");
+}
+
+export function createAdminClassroom(classroom) {
+  return adminRequest("/academics/classrooms", {
+    method: "POST",
+    body: JSON.stringify(classroom),
+  });
+}
+
+export function assignAdminClassroomInstructor(classroomId, instructorId) {
+  return adminRequest(`/academics/classrooms/${classroomId}/instructors`, {
+    method: "POST",
+    body: JSON.stringify({ instructorId }),
+  });
+}
+
+export function bulkInviteStudents(students) {
+  return adminRequest("/students/bulk-invite", {
+    method: "POST",
+    body: JSON.stringify({ students }),
+  });
+}
+
 async function instructorRequest(path, options = {}) {
   const response = await fetch(`/api/instructor${path}`, {
     ...options,
@@ -156,13 +181,6 @@ export function fetchInstructorClassroom(classroomId) {
 
 export function fetchEligibleInstructorStudents() {
   return instructorRequest("/eligible-students");
-}
-
-export function createInstructorClassroom(classroom) {
-  return instructorRequest("/classrooms", {
-    method: "POST",
-    body: JSON.stringify(classroom),
-  });
 }
 
 export function createInstructorClassroomGroup(classroomId, group) {
