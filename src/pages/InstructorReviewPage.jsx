@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import ReviewDecisionPanel from "../components/ReviewDecisionPanel";
 
 const STATUS_OPTIONS = [
   "All",
@@ -219,6 +219,22 @@ function InstructorReviewPage() {
       active = false;
     };
   }, []);
+
+  // after a decision, reload the queue and the open submission so the
+  // status and counters update without pressing Refresh
+  async function refreshAfterReview() {
+    await loadSubmissions();
+    try {
+      const result = await instructorRequest(
+        `/submissions/${details.assignmentId}`
+      );
+      setDetails(result);
+    } catch (refreshError) {
+      setDetailsError(
+        refreshError.message || "Unable to refresh this submission."
+      );
+    }
+  }
 
   async function openSubmission(assignmentId) {
     if (selectedAssignmentId === assignmentId) {
@@ -743,7 +759,12 @@ function InstructorReviewPage() {
                   </div>
                 )}
               </article>
-
+              
+              <ReviewDecisionPanel
+                assignmentId={details.assignmentId}
+                status={details.note?.status}
+                onReviewed={refreshAfterReview}
+              />
             </>
           )}
         </section>
