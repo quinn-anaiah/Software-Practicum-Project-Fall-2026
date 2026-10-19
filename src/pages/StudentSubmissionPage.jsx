@@ -796,10 +796,14 @@ export default function StudentSubmissionPage({
       setSubmitting(true);
       setError("");
       setSuccess("");
-      const submittedNote = await submitStudentDocumentation(
-        patientCase.assignment_id
-      );
-      setNote(submittedNote);
+      // const submittedNote = await submitStudentDocumentation(
+      //   patientCase.assignment_id
+      // );
+      // setNote(submittedNote);
+      await submitStudentDocumentation(patientCase.assignment_id);
+      // The submit route returns a message, not the note, so reload the note
+      // to show its new "Pending Review" status.
+      setNote(await fetchStudentNote(patientCase.assignment_id));
       const savedOrders = await fetchStudentOrders(patientCase.assignment_id);
       setOrders(savedOrders || []);
       setSuccess("Documentation submitted for instructor review.");
@@ -936,10 +940,10 @@ export default function StudentSubmissionPage({
         <h2>Submit for Instructor Review</h2>
         {error && <p role="alert">{error}</p>}
         {success && <p role="status">{success}</p>}
-        {note?.status === "Submitted" ? (
+        {note?.status === "Pending Review" ? (
           <p role="status">This documentation has been submitted and is awaiting instructor review.</p>
-        ) : note?.status === "Approved" || note?.status === "Signed" ? (
-          <p>This documentation is already finalized.</p>
+        ) : note?.status === "Approved" ? (
+          <p>This documentation has been approved.</p>
         ) : (
           <>
             <p>Submitting locks the SOAP note and saved orders until an instructor returns the work for corrections.</p>

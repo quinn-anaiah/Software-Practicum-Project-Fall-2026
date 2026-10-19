@@ -322,7 +322,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
               type="button"
               disabled={
                 !encounterInProgress ||
-                noteStatus === "Signed" ||
+                noteStatus === "Pending Review" ||
                 noteStatus === "Approved"
               }
               onClick={() => navigateTo("noteForm")}

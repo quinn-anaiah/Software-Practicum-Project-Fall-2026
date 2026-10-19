@@ -120,7 +120,8 @@ studentRouter.post("/notes", async (request, response) => {
     await supabaseAdmin
       .schema("learning")
       .from("notes")
-      .select("id")
+      // status is selected so the lock check below can see it
+      .select("id, status")
       .eq("assignment_id", assignmentId)
       .eq("note_type", "soap")
       .order("updated_at", { ascending: false })
@@ -137,6 +138,20 @@ studentRouter.post("/notes", async (request, response) => {
       message: "Unable to save note.",
     });
   }
+
+  /*jazmin change*/
+  // Locked while under review or approved; editable again only after the
+  // instructor returns it. Prevents a save from resetting status to "Draft".
+  if (
+    existingNote &&
+    ["Pending Review", "Approved"].includes(existingNote.status)
+  ) {
+    return response.status(409).json({
+      message:
+        "This note is locked. It can be edited again only if your instructor returns it.",
+    });
+  }
+  /*jazmin change end*/
 
   let result;
 
