@@ -26,7 +26,9 @@ import StudentClassesPage from "../pages/StudentClassesPage";
 import StudentClassDetailPage from "../pages/StudentClassDetailPage";
 import PatientOverviewPage from "../pages/PatientOverviewPage";
 import PatientCareTeamPage from "../pages/PatientCareTeamPage";
-import { Component } from "react";
+import PatientAppointmentsPage from "../pages/PatientAppointmentsPage";
+import PatientHealthInsightsPage from "../pages/PatientHealthInsightsPage";
+
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -98,18 +100,8 @@ const routesByRole = {
     pages: {
       overview: { path: "/patient", Component: PatientOverviewPage },
       careTeam: { path: "/patient/care-team", Component: PatientCareTeamPage},
-      appointments: placeholder(
-        "/patient/appointments",
-        "My schedule",
-        "No appointments yet",
-        "Upcoming visits and care history will appear here once appointment data is connected.",
-      ),
-      insights: placeholder(
-        "/patient/insights",
-        "Health insights",
-        "No health insights yet",
-        "Care-plan reminders and trends will appear here when clinical data is available.",
-      ),
+      appointments: {path: "/patient/appointments", Component: PatientAppointmentsPage},
+      insights: { path: "/patient/health-insights", Component: PatientHealthInsightsPage},
       settings: { path: "/patient/settings", Component: SettingsPage },
     },
   },

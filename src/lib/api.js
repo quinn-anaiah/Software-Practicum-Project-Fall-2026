@@ -488,3 +488,53 @@ export async function fetchPatientCareTeam() {
 
   return payload;
 }
+
+export async function fetchPatientAppointments() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch("/api/patient/appointments", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load appointments.");
+  return payload;
+}
+
+export async function schedulePatientAppointment(appointmentData) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch("/api/patient/appointments", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(appointmentData),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to schedule appointment.");
+  return payload;
+}
+
+export async function updateReferralAppointment(referralId, appointmentId) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch(`/api/patient/referrals/${referralId}/schedule`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ appointmentId }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to update referral status.");
+  return payload;
+}
+
+export async function fetchPatientVitals() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch("/api/patient/vitals", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load vitals.");
+  return payload;
+}

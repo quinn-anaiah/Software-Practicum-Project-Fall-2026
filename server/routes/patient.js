@@ -44,13 +44,15 @@ patientRouter.get("/dashboard", async (request, response) => {
         const patientId = user.id;
         console.log("Patient Id", user.id)
 
-        const [history, medications, appointments, careTeam, updates, allergies] = await Promise.all([
+        const [history, medications, appointments, careTeam, updates, allergies, referrals, vitals] = await Promise.all([
             supabaseAdmin.schema('patient_portal').from('medical_history').select('*').eq('profile_id', patientId),
             supabaseAdmin.schema('patient_portal').from('medications').select('*').eq('patient_id', patientId),
             supabaseAdmin.schema('patient_portal').from('appointments').select('*').eq('patient_id', patientId),
             supabaseAdmin.schema('patient_portal').from('care_team').select('*').eq('patient_id', patientId),
             supabaseAdmin.schema('patient_portal').from('clinical_updates').select('*').eq('patient_id', patientId),
-            supabaseAdmin.schema('patient_portal').from('allergies').select('*').eq('profile_id', patientId)
+            supabaseAdmin.schema('patient_portal').from('allergies').select('*').eq('profile_id', patientId),
+            supabaseAdmin.schema('patient_portal').from('referrals').select('*').eq('patient_id', patientId),
+            supabaseAdmin.schema('patient_portal').from('vitals').select('*').eq('patient_id', patientId)
         ]);
 
         console.log("History", history)
@@ -68,7 +70,9 @@ patientRouter.get("/dashboard", async (request, response) => {
             appointments: appointments.data || [],
             careTeam: careTeam.data || [],
             clinicalUpdates: updates.data || [],
-            allergies: allergies.data || []
+            allergies: allergies.data || [], 
+            referrals: referrals.data || [],
+            vitals: vitals || []
         });
     } catch (error) {
         console.error("Unable to load patient overview:", error);
@@ -138,6 +142,106 @@ patientRouter.get("/care-team", async (request, response) => {
     console.error("Unable to load care team route:", error);
     return response.status(500).json({ message: "Unable to load care team." });
   }
+});
+
+
+patientRouter.get("/appointments", async (request, response) => {
+    try {
+        const context = await requirePatient(request, response);
+        if (!context) return;
+        const { supabaseAdmin, user } = context;
+
+        const { data, error } = await supabaseAdmin
+            .schema('patient_portal')
+            .from('appointments')
+            .select('*')
+            .eq('patient_id', user.id)
+            .order('appointment_date', { ascending: true });
+
+        if (error) throw error;
+        return response.json(data || []);
+    } catch (error) {
+        console.error("Error fetching appointments:", error);
+        return response.status(500).json({ message: "Unable to load appointments." });
+    }
+});
+
+// Schedule a new appointment
+patientRouter.post("/appointments", async (request, response) => {
+    try {
+        const context = await requirePatient(request, response);
+        if (!context) return;
+        const { supabaseAdmin, user } = context;
+        const { reason, appointment_date, location } = request.body;
+
+        const { data, error } = await supabaseAdmin
+            .schema('patient_portal')
+            .from('appointments')
+            .insert({
+                patient_id: user.id,
+                reason: reason || "General Consultation",
+                appointment_date: appointment_date,
+                location: location || "Main Clinic Room A",
+                status: "Scheduled"
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return response.status(201).json(data);
+    } catch (error) {
+        console.error("Error scheduling appointment:", error);
+        return response.status(500).json({ message: "Unable to schedule appointment." });
+    }
+});
+
+patientRouter.patch("/referrals/:id/schedule", async (request, response) => {
+    try {
+        const context = await requirePatient(request, response);
+        if (!context) return;
+        const { supabaseAdmin } = context;
+        const { referralId } = request.params;
+        const { appointmentId } = request.body;
+
+        const { data, error } = await supabaseAdmin
+            .schema('patient_portal')
+            .from('referrals')
+            .update({
+                status: 'Approved',
+                linked_appointment_id: appointmentId,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', referralId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return response.json(data);
+    } catch (error) {
+        console.error("Error updating referral status:", error);
+        return response.status(500).json({ message: "Unable to update referral." });
+    }
+});
+
+patientRouter.get("/vitals", async (request, response) => {
+    try {
+        const context = await requirePatient(request, response);
+        if (!context) return;
+        const { supabaseAdmin, user } = context;
+
+        const { data, error } = await supabaseAdmin
+            .schema('patient_portal')
+            .from('vitals')
+            .select('*')
+            .eq('patient_id', user.id)
+            .order('recorded_date', { ascending: false });
+
+        if (error) throw error;
+        return response.json(data || []);
+    } catch (error) {
+        console.error("Error fetching vitals:", error);
+        return response.status(500).json({ message: "Unable to load vitals." });
+    }
 });
 
 export default patientRouter;
