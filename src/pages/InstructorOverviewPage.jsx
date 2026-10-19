@@ -4,6 +4,7 @@ import { fetchInstructorDashboard } from "../lib/api";
 function InstructorOverviewPage({ user }) {
   const [dashboard, setDashboard] = useState(null);
   const [error, setError] = useState("");
+  const [pendingReviews, setPendingReviews] = useState(0);
 
   useEffect(() => {
     let isCurrent = true;

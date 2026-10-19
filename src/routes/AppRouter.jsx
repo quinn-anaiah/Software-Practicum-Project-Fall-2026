@@ -14,6 +14,7 @@ import AdminPatientDetailPage from "../pages/AdminPatientDetailPage";
 import DashboardPage from "../pages/DashboardPage";
 import InstructorClassesPage from "../pages/InstructorClassesPage";
 import InstructorOverviewPage from "../pages/InstructorOverviewPage";
+import InstructorReviewPage from "../pages/InstructorReviewPage";
 import LoginPage from "../pages/LoginPage";
 import RegisterPage from "../pages/RegisterPage";
 import PasswordSetupPage from "../pages/PasswordSetupPage";
@@ -72,12 +73,10 @@ const routesByRole = {
         "No learner activity yet",
         "Encounter states and submission progress will appear here when cases are assigned.",
       ),
-      review: placeholder(
-        "/instructor/review",
-        "Review & co-sign",
-        "No work pending review",
-        "Submitted notes and mock orders will appear here for review and attestation.",
-      ),
+      review: {
+        path: "/instructor/review",
+        Component: InstructorReviewPage,
+      },
       feedback: placeholder(
         "/instructor/feedback",
         "Feedback & grades",

@@ -394,4 +394,372 @@ instructorRouter.post("/classrooms/:classroomId/groups/:groupId/members", async 
   }
 });
 
+instructorRouter.post("/classrooms", async (request, response) => {
+  const crn = String(request.body.crn || "").trim();
+  const fullName = String(request.body.fullName || "").trim();
+  const shortName = String(request.body.shortName || "").trim();
+  const room = String(request.body.room || "").trim() || null;
+  const term = String(request.body.term || "").trim();
+  const studentIds = [...new Set(Array.isArray(request.body.studentIds) ? request.body.studentIds : [])];
+
+  if (!crn || !fullName || !shortName || !term) {
+    return response.status(400).json({ message: "Enter a CRN, full name, short name, and term." });
+  }
+
+  try {
+    const context = await requireInstructor(request, response);
+    if (!context) return;
+    const eligible = await eligibleStudents(context.supabaseAdmin, context.profile.sub_role_id);
+    const eligibleIds = new Set(eligible.map((student) => student.id));
+    if (!studentIds.every((studentId) => eligibleIds.has(studentId))) {
+      return response.status(400).json({
+        message: "Students must have the Student role and the same discipline as this classroom.",
+      });
+    }
+
+    const school = context.supabaseAdmin.schema("school");
+    const { data: classroom, error: classroomError } = await school
+      .from("classrooms")
+      .insert({
+        crn,
+        full_name: fullName,
+        short_name: shortName,
+        room,
+        term,
+        discipline_subrole_id: context.profile.sub_role_id,
+        created_by: context.profile.id,
+        status: "active",
+      })
+      .select("id, crn, full_name, short_name, room, term, discipline_subrole_id, status")
+      .single();
+    if (classroomError) return response.status(400).json({ message: classroomError.message });
+
+    const { error: instructorError } = await school.from("classroom_instructors").insert({
+      classroom_id: classroom.id,
+      instructor_id: context.profile.id,
+      access_level: "owner",
+    });
+    if (instructorError) {
+      await school.from("classrooms").delete().eq("id", classroom.id);
+      throw instructorError;
+    }
+
+    if (studentIds.length) {
+      const { error: enrollmentError } = await school.from("classroom_enrollments").insert(
+        studentIds.map((studentId) => ({ classroom_id: classroom.id, student_id: studentId })),
+      );
+      if (enrollmentError) {
+        await school.from("classrooms").delete().eq("id", classroom.id);
+        throw enrollmentError;
+      }
+    }
+
+    return response.status(201).json({
+      classroom: { ...classroom, discipline: relationName(context.profile.subroles) },
+      message: `${shortName} has been created.`,
+    });
+  } catch (error) {
+    console.error("Unable to create classroom:", error);
+    return response.status(500).json({ message: "Unable to create this classroom." });
+  }
+});
+
+async function getReviewAssignment(admin, profile, assignmentId) {
+  const { data: assignment, error } = await admin
+    .schema("learning")
+    .from("student_case_assignments")
+    .select("id, student_id, case_id, classroom_id")
+    .eq("id", assignmentId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  // an assignment with no class can't be tied to an instructor yet.
+  if (!assignment?.classroom_id) return null;
+
+  // the instructor must teach the assignment's own class, and the class
+  // discipline must match theirs (verifyClassroomAccess checks both)
+  const access = await verifyClassroomAccess(
+    admin,
+    profile,
+    assignment.classroom_id
+  );
+  if (!access) return null;
+
+  return assignment;
+}
+
+instructorRouter.get("/submissions", async (request, response) => {
+  try {
+    const context = await requireInstructor(request, response);
+    if (!context) return;
+
+    const { supabaseAdmin: admin, profile } = context;
+
+    const { data: notes, error: notesError } =
+      await admin
+        .schema("learning")
+        .from("notes")
+        .select("id, assignment_id, note_type, status, updated_at")
+        .in("status", ["Pending Review", "Approved", "Returned"])
+        .order("updated_at", { ascending: false });
+
+    if (notesError) throw notesError;
+
+    const submissions = [];
+
+    for (const note of notes || []) {
+      const assignment = await getReviewAssignment(
+        admin,
+        profile,
+        note.assignment_id
+      );
+
+      if (!assignment) continue;
+
+      const [studentResult, caseResult] = await Promise.all([
+        admin
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .eq("id", assignment.student_id)
+          .maybeSingle(),
+        admin
+          .schema("learning")
+          .from("cases")
+          .select("id, title, patient_name")
+          .eq("id", assignment.case_id)
+          .maybeSingle(),
+      ]);
+
+      if (studentResult.error) throw studentResult.error;
+      if (caseResult.error) throw caseResult.error;
+
+      submissions.push({
+        id: note.id,
+        assignmentId: assignment.id,
+        classroomId: assignment.classroom_id,
+        noteType: note.note_type,
+        status: note.status,
+        updatedAt: note.updated_at,
+        student: studentResult.data
+          ? {
+              id: studentResult.data.id,
+              name: [
+                studentResult.data.first_name,
+                studentResult.data.last_name,
+              ].filter(Boolean).join(" "),
+            }
+          : null,
+        patientCase: caseResult.data,
+      });
+    }
+
+    return response.json({ submissions });
+  } catch (error) {
+    console.error("Unable to load submissions:", error);
+    return response.status(500).json({
+      message: "Unable to load student submissions.",
+    });
+  }
+});
+
+
+instructorRouter.get(
+  "/submissions/:assignmentId",
+  async (request, response) => {
+    try {
+      const context = await requireInstructor(request, response);
+      if (!context) return;
+
+      const { supabaseAdmin: admin, profile } = context;
+
+      const assignment = await getReviewAssignment(
+        admin,
+        profile,
+        request.params.assignmentId
+      );
+
+      if (!assignment) {
+        return response.status(404).json({
+          message: "Submission not found or access denied.",
+        });
+      }
+
+      const [noteResult, ordersResult, studentResult, caseResult] =
+        await Promise.all([
+          admin
+            .schema("learning")
+            .from("notes")
+            .select("*")
+            .eq("assignment_id", assignment.id)
+            .in("status", [
+              "Pending Review",
+              "Approved",
+              "Returned",
+            ])
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          admin
+            .schema("learning")
+            .from("orders")
+            .select("*")
+            .eq("assignment_id", assignment.id)
+            .order("id"),
+          admin
+            .from("profiles")
+            .select("id, first_name, last_name")
+            .eq("id", assignment.student_id)
+            .maybeSingle(),
+          admin
+            .schema("learning")
+            .from("cases")
+            .select("*")
+            .eq("id", assignment.case_id)
+            .maybeSingle(),
+        ]);
+
+      const queryError =
+        noteResult.error ||
+        ordersResult.error ||
+        studentResult.error ||
+        caseResult.error;
+
+      if (queryError) throw queryError;
+
+      if (!noteResult.data) {
+        return response.status(404).json({
+          message: "No submitted note found.",
+        });
+      }
+
+      return response.json({
+        assignmentId: assignment.id,
+        note: noteResult.data,
+        orders: ordersResult.data || [],
+        student: studentResult.data,
+        patientCase: caseResult.data,
+      });
+    } catch (error) {
+      console.error("Unable to load submission:", error);
+      return response.status(500).json({
+        message: "Unable to load this submission.",
+      });
+    }
+  }
+);
+
+instructorRouter.patch(
+  "/submissions/:assignmentId/review",
+  async (request, response) => {
+    try {
+      const context = await requireInstructor(request, response);
+      if (!context) return;
+
+      const { supabaseAdmin: admin, profile } = context;
+      const { decision } = request.body || {};
+
+            if (!["Approved", "Returned"].includes(decision)) {
+        return response.status(400).json({
+          message: "Decision must be Approved or Returned.",
+        });
+      }
+
+      // Instructor feedback. A return must explain what to revise.
+      const comments = String(request.body?.comments || "").trim().slice(0, 2000);
+      if (decision === "Returned" && !comments) {
+        return response.status(400).json({
+          message: "Add feedback explaining what the student should revise.",
+        });
+      }
+
+      const assignment = await getReviewAssignment(
+        admin,
+        profile,
+        request.params.assignmentId
+      );
+
+      if (!assignment) {
+        return response.status(404).json({
+          message: "Submission not found or access denied.",
+        });
+      }
+
+      const { data: note, error: noteError } =
+        await admin
+          .schema("learning")
+          .from("notes")
+          .select("id, status")
+          .eq("assignment_id", assignment.id)
+          .eq("status", "Pending Review")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+      if (noteError) throw noteError;
+
+      if (!note) {
+        return response.status(409).json({
+          message: "No pending submission available for review.",
+        });
+      }
+
+      const { data: reviewedNote, error: updateError } =
+        await admin
+          .schema("learning")
+          .from("notes")
+          .update({
+            status: decision,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", note.id)
+          .eq("status", "Pending Review")
+          .select()
+          .maybeSingle();
+
+      if (updateError) throw updateError;
+
+      if (!reviewedNote) {
+        return response.status(409).json({
+          message: "Submission has already been reviewed.",
+        });
+      }
+
+      // save the decision and comments, if this fails, undo the status
+      // change so a decision never exists without its record.
+      const { error: reviewError } = await admin
+        .schema("learning")
+        .from("note_reviews")
+        .insert({
+          note_id: reviewedNote.id,
+          reviewer_id: profile.id,
+          decision,
+          comments: comments || null,
+        });
+
+      if (reviewError) {
+        await admin
+          .schema("learning")
+          .from("notes")
+          .update({ status: "Pending Review" })
+          .eq("id", reviewedNote.id);
+        throw reviewError;
+      }
+
+      return response.json({
+        message:
+          decision === "Approved"
+            ? "Submission approved."
+            : "Submission returned for revision.",
+        note: reviewedNote,
+      });
+    } catch (error) {
+      console.error("Unable to review submission:", error);
+      return response.status(500).json({
+        message: "Unable to review this submission.",
+      });
+    }
+  }
+);
+
 export default instructorRouter;

@@ -7,6 +7,8 @@ import {
   fetchStudentNote,
   updateStudentCaseStatus,
 } from "../lib/api";
+import { noteStatusLabel } from "../lib/noteStatus";
+import InstructorFeedback from "../components/InstructorFeedback";
 
 const statusOrder = [
   "Scheduled",
@@ -221,6 +223,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
           {[
             ["case", "Case Information"],
             ["notes", "Notes"],
+            ["orders", "Orders"],
             ["review", "Review & Submit"],
           ].map(([id, label]) => (
             <button
@@ -263,6 +266,13 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
       </div>
 
       {error && <p role="alert">{error}</p>}
+      <InstructorFeedback
+                feedback={
+                  ["Returned", "Approved"].includes(savedNote?.status)
+                    ? savedNote?.feedback
+                    : null
+                }
+              />
 
       {/* CASE INFORMATION */}
       {activeTab === "case" && (
@@ -292,15 +302,20 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
             <div>
               <h2>Clinical Notes</h2>
               <p>
-                {hasNote
-                  ? "You have a saved clinical note. Continue editing where you left off."
+                {noteStatus === "Pending Review"
+                  ? "Your note has been submitted and is awaiting instructor review. It is locked until your instructor responds."
+                  : noteStatus === "Approved"
+                  ? "Your instructor approved this note."
+                  : noteStatus === "Returned"
+                  ? "Your instructor returned this note. Review the feedback above, revise, and submit again."
+                  : hasNote
+                  ? "You have a saved draft. Continue editing where you left off."
                   : "No clinical note has been started for this encounter."}
               </p>
             </div>
 
-            <span className="status-badge">
-              {noteStatus}
-            </span>
+              <span className="status-badge">{noteStatusLabel(noteStatus)}</span>
+            
           </div>
 
           <dl className="detail-form-grid">
@@ -311,7 +326,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
 
             <div className="detail-field">
               <dt>Status</dt>
-              <dd>{noteStatus}</dd>
+              <dd>{noteStatusLabel(noteStatus)}</dd>
             </div>
           </dl>
 
@@ -320,19 +335,64 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
               className="primary-button"
               type="button"
               disabled={
-                !encounterInProgress ||
-                noteStatus === "Signed" ||
-                noteStatus === "Approved"
-              }
+                        !encounterInProgress ||
+                        noteStatus === "Pending Review" ||
+                        noteStatus === "Approved"
+                      }
               onClick={() => navigateTo("noteForm")}
             >
-              {hasNote ? "Continue Note" : "Start Note"}
+              {noteStatus === "Returned"
+                ? "Revise Note"
+                : hasNote
+                ? "Continue Note"
+                : "Start Note"}
             </button>
           </div>
 
           {!encounterInProgress && (
             <p className="case-help-text">
               Start the encounter before editing clinical notes.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* ORDERS */}
+      {activeTab === "orders" && (
+        <section className="panel data-panel case-section">
+          <div className="case-section-heading">
+            <div>
+              <h2>Orders</h2>
+              <p>
+                Create and manage orders for this patient encounter.
+              </p>
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button
+              className="primary-button"
+              type="button"
+              disabled={
+                        !encounterInProgress ||
+                        noteStatus === "Pending Review" ||
+                        noteStatus === "Approved"
+                      }
+              onClick={() => navigateTo("orderEntry")}
+            >
+              Manage Orders
+            </button>
+          </div>
+
+          {!encounterInProgress && (
+            <p className="case-help-text">
+              Start the encounter before managing orders.
+            </p>
+          )}
+
+          {(noteStatus === "Pending Review" || noteStatus === "Approved") && (
+            <p className="case-help-text">
+              Orders are locked while your note is submitted or approved.
             </p>
           )}
         </section>
@@ -354,7 +414,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
           <dl className="detail-form-grid">
             <div className="detail-field">
               <dt>SOAP Note</dt>
-              <dd>{noteStatus}</dd>
+              <dd>{noteStatusLabel(noteStatus)}</dd>
             </div>
           </dl>
 
