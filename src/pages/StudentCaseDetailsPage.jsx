@@ -7,6 +7,7 @@ import {
   fetchStudentNote,
   updateStudentCaseStatus,
 } from "../lib/api";
+import { noteStatusLabel } from "../lib/noteStatus";
 
 const statusOrder = [
   "Scheduled",
@@ -293,15 +294,20 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
             <div>
               <h2>Clinical Notes</h2>
               <p>
-                {hasNote
-                  ? "You have a saved clinical note. Continue editing where you left off."
+                {noteStatus === "Pending Review"
+                  ? "Your note has been submitted and is awaiting instructor review. It is locked until your instructor responds."
+                  : noteStatus === "Approved"
+                  ? "Your instructor approved this note."
+                  : noteStatus === "Returned"
+                  ? "Your instructor returned this note. Revise it and submit again."
+                  : hasNote
+                  ? "You have a saved draft. Continue editing where you left off."
                   : "No clinical note has been started for this encounter."}
               </p>
             </div>
 
-            <span className="status-badge">
-              {noteStatus}
-            </span>
+              <span className="status-badge">{noteStatusLabel(noteStatus)}</span>
+            
           </div>
 
           <dl className="detail-form-grid">
@@ -312,7 +318,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
 
             <div className="detail-field">
               <dt>Status</dt>
-              <dd>{noteStatus}</dd>
+              <dd>{noteStatusLabel(noteStatus)}</dd>
             </div>
           </dl>
 
@@ -386,7 +392,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
           <dl className="detail-form-grid">
             <div className="detail-field">
               <dt>SOAP Note</dt>
-              <dd>{noteStatus}</dd>
+              <dd>{noteStatusLabel(noteStatus)}</dd>
             </div>
           </dl>
 

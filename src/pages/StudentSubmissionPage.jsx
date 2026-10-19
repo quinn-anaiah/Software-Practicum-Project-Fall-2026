@@ -5,6 +5,7 @@ import {
   fetchStudentNote,
   fetchStudentOrders,
 } from "../lib/api";
+import { noteStatusLabel } from "../lib/noteStatus";
 // Calls the submission endpoint directly so this page does not require
 // a new named export in src/lib/api.js.
 async function submitStudentDocumentation(assignmentId) {
@@ -696,7 +697,7 @@ function SOAPNotePreview({ note, patientCase }) {
           <p>{patientCase.title}</p>
         </div>
         <span className="soap-status">
-          {note.status || "Draft"}
+          {noteStatusLabel(note.status || "Draft")}
         </span>
       </header>
       <div className="soap-preview-patient-header">
