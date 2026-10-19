@@ -15,10 +15,11 @@ export async function registerUser(registrationData) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(registrationData),
   });
-  const payload = await response.json();
+  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const payload = isJson ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(payload.message || "Unable to create your account.");
+    throw new Error(payload?.message || "Unable to create your account. Check that the API server is running.");
   }
 
   return payload;
@@ -131,6 +132,31 @@ export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
 
+export function fetchAdminAcademics() {
+  return adminRequest("/academics");
+}
+
+export function createAdminClassroom(classroom) {
+  return adminRequest("/academics/classrooms", {
+    method: "POST",
+    body: JSON.stringify(classroom),
+  });
+}
+
+export function assignAdminClassroomInstructor(classroomId, instructorId) {
+  return adminRequest(`/academics/classrooms/${classroomId}/instructors`, {
+    method: "POST",
+    body: JSON.stringify({ instructorId }),
+  });
+}
+
+export function bulkInviteStudents(students) {
+  return adminRequest("/students/bulk-invite", {
+    method: "POST",
+    body: JSON.stringify({ students }),
+  });
+}
+
 async function instructorRequest(path, options = {}) {
   const response = await fetch(`/api/instructor${path}`, {
     ...options,
@@ -155,13 +181,6 @@ export function fetchInstructorClassroom(classroomId) {
 
 export function fetchEligibleInstructorStudents() {
   return instructorRequest("/eligible-students");
-}
-
-export function createInstructorClassroom(classroom) {
-  return instructorRequest("/classrooms", {
-    method: "POST",
-    body: JSON.stringify(classroom),
-  });
 }
 
 export function createInstructorClassroomGroup(classroomId, group) {
@@ -446,5 +465,99 @@ export async function fetchStudentClass(classroomId) {
     throw new Error(payload.message || "Unable to load this class.");
   }
 
+  return payload;
+}
+
+export function fetchAdminActivity() {
+  return adminRequest("/activity");
+}
+
+
+export async function fetchPatientDashboard() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+
+  if (!accessToken) {
+    throw new Error("No active session. Please sign in again.");
+  }
+
+  const response = await fetch("/api/patient/dashboard", {
+    headers: {Authorization: `Bearer ${accessToken}`},
+  });
+
+  const payload = await response.json();
+  
+  
+
+  if(!response.ok){
+    throw new Error(payload.message || "Unable to load your patient health dashboard");
+
+  }
+  return payload;
+  
+}
+
+export async function fetchPatientCareTeam() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  if (!accessToken) throw new Error("No active session. Please sign in again.");
+
+  const response = await fetch("/api/patient/care-team", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.message || "Unable to load your care team.");
+  }
+
+  return payload;
+}
+
+export async function fetchPatientAppointments() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch("/api/patient/appointments", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load appointments.");
+  return payload;
+}
+
+export async function schedulePatientAppointment(appointmentData) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch("/api/patient/appointments", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(appointmentData),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to schedule appointment.");
+  return payload;
+}
+
+export async function updateReferralAppointment(referralId, appointmentId) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch(`/api/patient/referrals/${referralId}/schedule`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ appointmentId }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to update referral status.");
+  return payload;
+}
+
+export async function fetchPatientVitals() {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  const response = await fetch("/api/patient/vitals", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || "Unable to load vitals.");
   return payload;
 }

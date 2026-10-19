@@ -8,6 +8,7 @@ import {
 } from "../lib/navigation";
 import DatabasePlaceholderPage from "../pages/DatabasePlaceholderPage";
 import AdminUserDirectoryPage from "../pages/AdminUserDirectoryPage";
+import AdminAcademicsPage from "../pages/AdminAcademicsPage";
 import AdminPatientsPage from "../pages/AdminPatientsPage";
 import AdminPatientDetailPage from "../pages/AdminPatientDetailPage";
 import DashboardPage from "../pages/DashboardPage";
@@ -25,6 +26,12 @@ import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
 import StudentSubmissionPage from "../pages/StudentSubmissionPage";
 import StudentClassesPage from "../pages/StudentClassesPage";
 import StudentClassDetailPage from "../pages/StudentClassDetailPage";
+import PatientOverviewPage from "../pages/PatientOverviewPage";
+import PatientCareTeamPage from "../pages/PatientCareTeamPage";
+import PatientAppointmentsPage from "../pages/PatientAppointmentsPage";
+import PatientHealthInsightsPage from "../pages/PatientHealthInsightsPage";
+
+import AdminActivityPage from "../pages/AdminActivityPage";
 
 function placeholder(path, eyebrow, title, description) {
   return { path, eyebrow, title, description };
@@ -36,8 +43,10 @@ const routesByRole = {
     pages: {
       overview: { path: "/admin", Component: DashboardPage },
       users: { path: "/admin/users", Component: AdminUserDirectoryPage },
+      academics: { path: "/admin/academics", Component: AdminAcademicsPage },
       patients: { path: "/admin/patients", Component: AdminPatientsPage },
       patientDetail: { path: "/admin/patient", Component: AdminPatientDetailPage },
+      activity: { path: "/admin/activity", Component: AdminActivityPage },
       settings: { path: "/admin/settings", Component: SettingsPage },
     },
   },
@@ -92,25 +101,10 @@ const routesByRole = {
   Patient: {
     navigation: patientNavigation,
     pages: {
-      overview: { path: "/patient", Component: DashboardPage },
-      careTeam: placeholder(
-        "/patient/care-team",
-        "My care team",
-        "No care team is assigned yet",
-        "Your providers and support contacts will appear here after they are assigned.",
-      ),
-      appointments: placeholder(
-        "/patient/appointments",
-        "My schedule",
-        "No appointments yet",
-        "Upcoming visits and care history will appear here once appointment data is connected.",
-      ),
-      insights: placeholder(
-        "/patient/insights",
-        "Health insights",
-        "No health insights yet",
-        "Care-plan reminders and trends will appear here when clinical data is available.",
-      ),
+      overview: { path: "/patient", Component: PatientOverviewPage },
+      careTeam: { path: "/patient/care-team", Component: PatientCareTeamPage},
+      appointments: {path: "/patient/appointments", Component: PatientAppointmentsPage},
+      insights: { path: "/patient/health-insights", Component: PatientHealthInsightsPage},
       settings: { path: "/patient/settings", Component: SettingsPage },
     },
   },
