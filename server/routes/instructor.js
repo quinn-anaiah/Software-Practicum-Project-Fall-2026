@@ -465,63 +465,29 @@ instructorRouter.post("/classrooms", async (request, response) => {
 });
 
 async function getReviewAssignment(admin, profile, assignmentId) {
-  const learning = admin.schema("learning");
-  const school = admin.schema("school");
+  const { data: assignment, error } = await admin
+    .schema("learning")
+    .from("student_case_assignments")
+    .select("id, student_id, case_id, classroom_id")
+    .eq("id", assignmentId)
+    .maybeSingle();
 
-  const { data: assignment, error: assignmentError } =
-    await learning
-      .from("student_case_assignments")
-      .select("id, student_id, case_id")
-      .eq("id", assignmentId)
-      .maybeSingle();
+  if (error) throw error;
 
-  if (assignmentError) throw assignmentError;
-  if (!assignment) return null;
+  // an assignment with no class can't be tied to an instructor yet.
+  if (!assignment?.classroom_id) return null;
 
-  const { data: memberships, error: membershipsError } =
-    await school
-      .from("classroom_instructors")
-      .select("classroom_id")
-      .eq("instructor_id", profile.id);
-
-  if (membershipsError) throw membershipsError;
-
-  const classroomIds = (memberships || []).map(
-    (row) => row.classroom_id
+  // the instructor must teach the assignment's own class, and the class
+  // discipline must match theirs (verifyClassroomAccess checks both)
+  const access = await verifyClassroomAccess(
+    admin,
+    profile,
+    assignment.classroom_id
   );
-
-  if (!classroomIds.length) return null;
-
-  const { data: classrooms, error: classroomsError } =
-    await school
-      .from("classrooms")
-      .select("id")
-      .in("id", classroomIds)
-      .eq("discipline_subrole_id", profile.sub_role_id);
-
-  if (classroomsError) throw classroomsError;
-
-  const allowedClassroomIds = (classrooms || []).map(
-    (row) => row.id
-  );
-
-  if (!allowedClassroomIds.length) return null;
-
-  const { data: enrollments, error: enrollmentError } =
-    await school
-      .from("classroom_enrollments")
-      .select("classroom_id")
-      .eq("student_id", assignment.student_id)
-      .eq("status", "active")
-      .in("classroom_id", allowedClassroomIds)
-      .limit(1);
-
-  if (enrollmentError) throw enrollmentError;
-  if (!enrollments?.length) return null;
+  if (!access) return null;
 
   return assignment;
 }
-
 
 instructorRouter.get("/submissions", async (request, response) => {
   try {
@@ -571,6 +537,7 @@ instructorRouter.get("/submissions", async (request, response) => {
       submissions.push({
         id: note.id,
         assignmentId: assignment.id,
+        classroomId: assignment.classroom_id,
         noteType: note.note_type,
         status: note.status,
         updatedAt: note.updated_at,
