@@ -88,7 +88,7 @@ function PatientCareTeamPage({ user }) {
 
                 <h2>{fullName}</h2>
                 <p>Role: {subroleName}</p>
-                <p>Careflow ID: {provider.careflow_id || "Not listed"}</p>
+                
                 
                 
               </article>

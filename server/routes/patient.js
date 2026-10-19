@@ -55,9 +55,7 @@ patientRouter.get("/dashboard", async (request, response) => {
             supabaseAdmin.schema('patient_portal').from('vitals').select('*').eq('patient_id', patientId)
         ]);
 
-        console.log("History", history)
-        console.log("CareTeam", careTeam)
-        console.log("Allergies", allergies)
+
 
         return response.json({
             metrics: {

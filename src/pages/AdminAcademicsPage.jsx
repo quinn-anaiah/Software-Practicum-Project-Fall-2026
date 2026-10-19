@@ -1,0 +1,292 @@
+import { useEffect, useMemo, useState } from "react";
+import Icon from "../components/Icon";
+import Pagination from "../components/Pagination";
+import {
+  assignAdminClassroomInstructor,
+  bulkInviteStudents,
+  createAdminClassroom,
+  fetchAdminAcademics,
+} from "../lib/api";
+
+const initialClassroom = {
+  crn: "",
+  fullName: "",
+  shortName: "",
+  room: "",
+  term: "Fall 2026",
+  disciplineSubroleId: "",
+  instructorId: "",
+};
+
+function parseStudents(value, subroleId) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [firstName = "", lastName = "", utepId = ""] = line.split(",").map((item) => item.trim());
+      return { firstName, lastName, utepId, subroleId: Number(subroleId) };
+    });
+}
+
+function AdminAcademicsPage() {
+  const [academics, setAcademics] = useState({ semesters: [], classrooms: [], students: [], instructors: [], subroles: [] });
+  const [status, setStatus] = useState("loading");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("all");
+  const [classroomPage, setClassroomPage] = useState(1);
+  const [studentPage, setStudentPage] = useState(1);
+  const [selectedClassroomId, setSelectedClassroomId] = useState("");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [classroomForm, setClassroomForm] = useState(initialClassroom);
+  const [bulkRows, setBulkRows] = useState("");
+  const [bulkSubroleId, setBulkSubroleId] = useState("");
+  const [temporaryCredentials, setTemporaryCredentials] = useState([]);
+  const [instructorId, setInstructorId] = useState("");
+
+  async function loadAcademics() {
+    const result = await fetchAdminAcademics();
+    setAcademics(result);
+    setSelectedClassroomId((current) => (
+      result.classrooms.some((classroom) => classroom.id === current) ? current : ""
+    ));
+  }
+
+  useEffect(() => {
+    let isCurrent = true;
+    async function load() {
+      try {
+        const result = await fetchAdminAcademics();
+        if (!isCurrent) return;
+        setAcademics(result);
+        setSelectedClassroomId("");
+        setStatus("ready");
+      } catch (loadError) {
+        if (!isCurrent) return;
+        setError(loadError instanceof Error ? loadError.message : "Unable to load academic administration.");
+        setStatus("error");
+      }
+    }
+    load();
+    return () => { isCurrent = false; };
+  }, []);
+
+  const visibleClassrooms = useMemo(
+    () => academics.classrooms.filter((classroom) => selectedTerm === "all" || classroom.term === selectedTerm),
+    [academics.classrooms, selectedTerm],
+  );
+  const classroomsPerPage = 8;
+  const studentsPerPage = 10;
+  const paginatedClassrooms = visibleClassrooms.slice(
+    (classroomPage - 1) * classroomsPerPage,
+    classroomPage * classroomsPerPage,
+  );
+  const paginatedStudents = academics.students.slice(
+    (studentPage - 1) * studentsPerPage,
+    studentPage * studentsPerPage,
+  );
+  const selectedClassroom = academics.classrooms.find((classroom) => classroom.id === selectedClassroomId) || null;
+  const matchingInstructors = academics.instructors.filter(
+    (instructor) => instructor.subroleId === selectedClassroom?.discipline_subrole_id,
+  );
+  const formInstructors = academics.instructors.filter(
+    (instructor) => String(instructor.subroleId) === String(classroomForm.disciplineSubroleId),
+  );
+  const activeClassrooms = academics.classrooms.filter((classroom) => classroom.status === "active").length;
+
+  function updateClassroom(field, value) {
+    setClassroomForm((current) => ({
+      ...current,
+      [field]: value,
+      ...(field === "disciplineSubroleId" ? { instructorId: "" } : {}),
+    }));
+  }
+
+  async function runAction(action) {
+    setIsSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await action();
+      await loadAcademics();
+      setNotice(result.message);
+      return result;
+    } catch (actionError) {
+      setError(actionError instanceof Error ? actionError.message : "Unable to save this change.");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function submitClassroom(event) {
+    event.preventDefault();
+    runAction(async () => {
+      const result = await createAdminClassroom(classroomForm);
+      setClassroomForm(initialClassroom);
+      setIsCreateOpen(false);
+      setSelectedClassroomId(result.classroom.id);
+      return result;
+    });
+  }
+
+  function submitBulkStudents(event) {
+    event.preventDefault();
+    const students = parseStudents(bulkRows, bulkSubroleId);
+    runAction(async () => {
+      const result = await bulkInviteStudents(students);
+      setBulkRows("");
+      setTemporaryCredentials(result.created || []);
+      if (result.failed?.length) {
+        return {
+          ...result,
+          message: `${result.message} ${result.failed.length} row${result.failed.length === 1 ? " needs" : "s need"} attention.`,
+        };
+      } else {
+        setIsBulkOpen(false);
+      }
+      return result;
+    });
+  }
+
+  function submitInstructor(event) {
+    event.preventDefault();
+    if (!selectedClassroom) return;
+    runAction(async () => {
+      const result = await assignAdminClassroomInstructor(selectedClassroom.id, instructorId);
+      setInstructorId("");
+      return result;
+    });
+  }
+
+  return (
+    <div className="dashboard-page content-page admin-academics-page">
+      <section className="page-heading">
+        <div>
+          <p className="section-label">Administration · academic operations</p>
+          <h1>Semesters & classrooms</h1>
+          <p>Provision classrooms, place the right instructor in each course, and keep a clear view of every registered learner.</p>
+        </div>
+        <div className="admin-academics-actions">
+          <button className="secondary-button" onClick={() => setIsBulkOpen(true)} type="button"><Icon name="plus" size={15} /> Bulk add students</button>
+          <button className="primary-button directory-create-button" onClick={() => setIsCreateOpen(true)} type="button"><Icon name="plus" size={15} /> Create classroom</button>
+        </div>
+      </section>
+
+      {(error || notice) && <section className={`panel directory-action-message ${error ? "directory-error" : "directory-success"}`} role="status">{error || notice}</section>}
+
+      {temporaryCredentials.length > 0 && (
+        <section className="panel temporary-credentials-panel">
+          <div className="panel__header">
+            <div>
+              <p className="section-label">One-time secure handoff</p>
+              <h2>Temporary student passwords</h2>
+            </div>
+            <button aria-label="Hide temporary passwords" className="row-action" onClick={() => setTemporaryCredentials([])} type="button">×</button>
+          </div>
+          <p>Record these now. Careflow cannot show the passwords again after this panel is closed or refreshed. Students should change them after their first sign-in.</p>
+          <div className="temporary-credentials-list">
+            {temporaryCredentials.map((credential) => (
+              <div key={credential.id}>
+                <span><strong>{credential.name}</strong><small>{credential.email}</small></span>
+                <code>{credential.temporaryPassword}</code>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="directory-metrics admin-academics-metrics">
+        <article className="panel"><span>Semesters on file</span><strong>{academics.semesters.length}</strong><small>All configured terms</small></article>
+        <article className="panel"><span>Active classrooms</span><strong>{activeClassrooms}</strong><small>Currently available courses</small></article>
+        <article className="panel"><span>Student accounts</span><strong>{academics.students.length}</strong><small>Profiles with Student access</small></article>
+        <article className="panel"><span>Faculty accounts</span><strong>{academics.instructors.length}</strong><small>Available for assignments</small></article>
+      </section>
+
+      {isCreateOpen && (
+        <section className="panel admin-academics-form-panel">
+          <div className="panel__header"><div><p className="section-label">Admin provisioned classroom</p><h2>Create a class</h2></div><button aria-label="Close classroom form" className="row-action" onClick={() => setIsCreateOpen(false)} type="button">×</button></div>
+          <form className="admin-form" onSubmit={submitClassroom}>
+            <label>CRN<input onChange={(event) => updateClassroom("crn", event.target.value)} required value={classroomForm.crn} /></label>
+            <label>Full name<input onChange={(event) => updateClassroom("fullName", event.target.value)} required value={classroomForm.fullName} /></label>
+            <label>Short name<input onChange={(event) => updateClassroom("shortName", event.target.value)} required value={classroomForm.shortName} /></label>
+            <label>Semester<input onChange={(event) => updateClassroom("term", event.target.value)} required value={classroomForm.term} /></label>
+            <label>Room <span>Optional</span><input onChange={(event) => updateClassroom("room", event.target.value)} value={classroomForm.room} /></label>
+            <label>Discipline<select onChange={(event) => updateClassroom("disciplineSubroleId", event.target.value)} required value={classroomForm.disciplineSubroleId}><option value="">Choose discipline</option>{academics.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}</select></label>
+            <label>Lead instructor <span>Optional</span><select disabled={!classroomForm.disciplineSubroleId} onChange={(event) => updateClassroom("instructorId", event.target.value)} value={classroomForm.instructorId}><option value="">Assign later</option>{formInstructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}</select></label>
+            <div className="admin-form__actions"><button className="secondary-button" onClick={() => setIsCreateOpen(false)} type="button">Cancel</button><button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Creating…" : "Create classroom"}</button></div>
+          </form>
+        </section>
+      )}
+
+      {isBulkOpen && (
+        <section className="panel admin-academics-form-panel">
+          <div className="panel__header"><div><p className="section-label">Student provisioning</p><h2>Create student accounts in bulk</h2></div><button aria-label="Close bulk student form" className="row-action" onClick={() => setIsBulkOpen(false)} type="button">×</button></div>
+          <form className="bulk-student-form" onSubmit={submitBulkStudents}>
+            <label>Discipline<select onChange={(event) => setBulkSubroleId(event.target.value)} required value={bulkSubroleId}><option value="">Choose discipline</option>{academics.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}</select></label>
+            <label>Student rows <span>One per line: First name, Last name, UTEP ID (optional)</span><textarea onChange={(event) => setBulkRows(event.target.value)} placeholder={"Avery, Morgan, 80123456\nElena, Rivera, 80123457"} required value={bulkRows} /></label>
+            <p className="bulk-student-form__hint">Careflow creates unique <strong>first.last.123456@careflow.test</strong> accounts with a temporary password shown once after creation.</p>
+            <div className="admin-form__actions"><button className="secondary-button" onClick={() => setIsBulkOpen(false)} type="button">Cancel</button><button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Creating accounts…" : "Create student accounts"}</button></div>
+          </form>
+        </section>
+      )}
+
+      <section className="admin-academics-toolbar panel">
+        <div><p className="section-label">Classroom directory</p><h2>Current academic roster</h2></div>
+        <label>Semester<select onChange={(event) => { setSelectedTerm(event.target.value); setClassroomPage(1); }} value={selectedTerm}><option value="all">All semesters</option>{academics.semesters.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
+      </section>
+
+      {status === "loading" && <section className="panel directory-loading">Loading academic information…</section>}
+      {status === "error" && <section className="panel directory-error">{error}</section>}
+      {status === "ready" && (
+        <section className="admin-classroom-directory">
+          <article className="panel directory-table-panel">
+            <div className="academic-class-list admin-scroll-list">
+              {paginatedClassrooms.map((classroom) => <button className={selectedClassroom?.id === classroom.id ? "academic-class-row academic-class-row--selected" : "academic-class-row"} key={classroom.id} onClick={() => setSelectedClassroomId(classroom.id)} type="button"><div><strong>{classroom.short_name}</strong><small>{classroom.full_name}</small></div><span>{classroom.term}</span><span>{classroom.discipline}</span><span>{classroom.studentCount} students</span></button>)}
+              {!visibleClassrooms.length && <p className="directory-loading">No classrooms match this semester.</p>}
+            </div>
+            <Pagination currentPage={classroomPage} itemLabel="classrooms" onPageChange={setClassroomPage} pageSize={classroomsPerPage} totalItems={visibleClassrooms.length} />
+          </article>
+        </section>
+      )}
+
+      {selectedClassroom && (
+        <section
+          aria-label={`Classroom details for ${selectedClassroom.full_name}`}
+          className="account-modal-backdrop"
+          onMouseDown={() => setSelectedClassroomId("")}
+          role="presentation"
+        >
+          <article
+            aria-modal="true"
+            className="panel academic-classroom-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="panel__header">
+              <div>
+                <p className="section-label">Classroom overview</p>
+                <h2>{selectedClassroom.full_name}</h2>
+              </div>
+              <button aria-label="Close classroom details" className="row-action" onClick={() => setSelectedClassroomId("")} type="button">×</button>
+            </div>
+            <p className="academic-detail-panel__metadata">{selectedClassroom.short_name} · CRN {selectedClassroom.crn} · {selectedClassroom.room || "Room not set"}</p>
+            <div className="classroom-stat-line"><span>{selectedClassroom.term}</span><span>{selectedClassroom.discipline}</span><span>{selectedClassroom.studentCount} enrolled</span></div>
+            <section className="academic-classroom-modal__grid">
+              <div>
+                <div className="academic-instructor-list"><strong>Assigned instructors</strong>{selectedClassroom.instructors.length ? selectedClassroom.instructors.map((instructor) => <div key={instructor.id}><span>{instructor.name.split(" ").map((part) => part[0]).join("")}</span><p>{instructor.name}<small>{instructor.accessLevel === "owner" ? "Lead instructor" : "Co-instructor"}</small></p></div>) : <p className="directory-loading">No instructor assigned yet.</p>}</div>
+                <form className="admin-form admin-form--compact" onSubmit={submitInstructor}><p className="section-label">Assign instructor</p><select onChange={(event) => setInstructorId(event.target.value)} required value={instructorId}><option value="">Choose {selectedClassroom.discipline} instructor</option>{matchingInstructors.filter((instructor) => !selectedClassroom.instructors.some((assigned) => assigned.id === instructor.id)).map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}</select><button className="secondary-button" disabled={isSaving || !matchingInstructors.length} type="submit">Assign instructor</button></form>
+              </div>
+              <div className="academic-student-panel academic-student-panel--modal"><p className="section-label">Student directory</p><h2>All students</h2><div className="admin-scroll-list">{paginatedStudents.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!academics.students.length && <p className="directory-loading">No student profiles yet.</p>}</div><Pagination currentPage={studentPage} itemLabel="students" onPageChange={setStudentPage} pageSize={studentsPerPage} totalItems={academics.students.length} /></div>
+            </section>
+          </article>
+        </section>
+      )}
+    </div>
+  );
+}
+
+export default AdminAcademicsPage;

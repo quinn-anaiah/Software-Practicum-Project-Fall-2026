@@ -15,10 +15,11 @@ export async function registerUser(registrationData) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(registrationData),
   });
-  const payload = await response.json();
+  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const payload = isJson ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(payload.message || "Unable to create your account.");
+    throw new Error(payload?.message || "Unable to create your account. Check that the API server is running.");
   }
 
   return payload;
@@ -131,6 +132,31 @@ export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
 
+export function fetchAdminAcademics() {
+  return adminRequest("/academics");
+}
+
+export function createAdminClassroom(classroom) {
+  return adminRequest("/academics/classrooms", {
+    method: "POST",
+    body: JSON.stringify(classroom),
+  });
+}
+
+export function assignAdminClassroomInstructor(classroomId, instructorId) {
+  return adminRequest(`/academics/classrooms/${classroomId}/instructors`, {
+    method: "POST",
+    body: JSON.stringify({ instructorId }),
+  });
+}
+
+export function bulkInviteStudents(students) {
+  return adminRequest("/students/bulk-invite", {
+    method: "POST",
+    body: JSON.stringify({ students }),
+  });
+}
+
 async function instructorRequest(path, options = {}) {
   const response = await fetch(`/api/instructor${path}`, {
     ...options,
@@ -155,13 +181,6 @@ export function fetchInstructorClassroom(classroomId) {
 
 export function fetchEligibleInstructorStudents() {
   return instructorRequest("/eligible-students");
-}
-
-export function createInstructorClassroom(classroom) {
-  return instructorRequest("/classrooms", {
-    method: "POST",
-    body: JSON.stringify(classroom),
-  });
 }
 
 export function createInstructorClassroomGroup(classroomId, group) {
@@ -449,6 +468,11 @@ export async function fetchStudentClass(classroomId) {
   return payload;
 }
 
+export function fetchAdminActivity() {
+  return adminRequest("/activity");
+}
+
+
 export async function fetchPatientDashboard() {
   const accessToken = sessionStorage.getItem("careflow-access-token");
 
@@ -461,8 +485,7 @@ export async function fetchPatientDashboard() {
   });
 
   const payload = await response.json();
-  console.log("payload", payload)
-  console.log("response", response)
+  
   
 
   if(!response.ok){
