@@ -659,9 +659,17 @@ instructorRouter.patch(
       const { supabaseAdmin: admin, profile } = context;
       const { decision } = request.body || {};
 
-      if (!["Approved", "Returned"].includes(decision)) {
+            if (!["Approved", "Returned"].includes(decision)) {
         return response.status(400).json({
           message: "Decision must be Approved or Returned.",
+        });
+      }
+
+      // Instructor feedback. A return must explain what to revise.
+      const comments = String(request.body?.comments || "").trim().slice(0, 2000);
+      if (decision === "Returned" && !comments) {
+        return response.status(400).json({
+          message: "Add feedback explaining what the student should revise.",
         });
       }
 
@@ -715,6 +723,27 @@ instructorRouter.patch(
         return response.status(409).json({
           message: "Submission has already been reviewed.",
         });
+      }
+
+      // save the decision and comments, if this fails, undo the status
+      // change so a decision never exists without its record.
+      const { error: reviewError } = await admin
+        .schema("learning")
+        .from("note_reviews")
+        .insert({
+          note_id: reviewedNote.id,
+          reviewer_id: profile.id,
+          decision,
+          comments: comments || null,
+        });
+
+      if (reviewError) {
+        await admin
+          .schema("learning")
+          .from("notes")
+          .update({ status: "Pending Review" })
+          .eq("id", reviewedNote.id);
+        throw reviewError;
       }
 
       return response.json({
