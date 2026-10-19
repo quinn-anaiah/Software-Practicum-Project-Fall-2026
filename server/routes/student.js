@@ -256,7 +256,28 @@ studentRouter.get("/notes/:assignmentId", async (request, response) => {
     });
   }
 
-  return response.json(data);
+  // Attach the latest instructor feedback, if the note has been reviewed.
+  let feedback = null;
+
+  if (data) {
+    const { data: review, error: reviewError } = await supabaseAdmin
+      .schema("learning")
+      .from("note_reviews")
+      .select("decision, comments, created_at")
+      .eq("note_id", data.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (reviewError) {
+      console.error("Unable to load feedback:", reviewError.message);
+      return response.status(500).json({ message: "Unable to load note." });
+    }
+
+    feedback = review;
+  }
+
+  return response.json(data ? { ...data, feedback } : data);
 });
 
 studentRouter.patch(
