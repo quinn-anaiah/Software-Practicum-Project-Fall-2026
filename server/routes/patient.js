@@ -42,7 +42,7 @@ patientRouter.get("/dashboard", async (request, response) => {
 
         const { supabaseAdmin, user } = context
         const patientId = user.id;
-        console.log("Patient Id", user.id)
+        
 
         const [history, medications, appointments, careTeam, updates, allergies, referrals, vitals] = await Promise.all([
             supabaseAdmin.schema('patient_portal').from('medical_history').select('*').eq('profile_id', patientId),
