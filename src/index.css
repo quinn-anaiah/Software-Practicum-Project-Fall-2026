@@ -3829,3 +3829,16 @@ td small {
 .encounter-status-label { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .note-patient-summary p,
 .note-patient-summary li { font-size: 13px; line-height: 1.45; }
+
+.feedback-comments {
+  white-space: pre-wrap;
+}
+
+.feedback-date {
+  color: #8a94a8;
+}
+
+.feedback-panel {
+  margin-bottom: 20px;
+  border-left: 4px solid #d99a2b;
+}

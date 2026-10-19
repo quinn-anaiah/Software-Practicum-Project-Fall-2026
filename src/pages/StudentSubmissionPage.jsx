@@ -6,6 +6,8 @@ import {
   fetchStudentOrders,
 } from "../lib/api";
 import { noteStatusLabel } from "../lib/noteStatus";
+import InstructorFeedback from "../components/InstructorFeedback";
+
 // Calls the submission endpoint directly so this page does not require
 // a new named export in src/lib/api.js.
 async function submitStudentDocumentation(assignmentId) {
@@ -937,6 +939,8 @@ export default function StudentSubmissionPage({
         )}
       </section>
 
+      <InstructorFeedback feedback={note?.feedback} />
+      
       <section className="panel data-panel">
         <h2>Submit for Instructor Review</h2>
         {error && <p role="alert">{error}</p>}

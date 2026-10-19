@@ -404,6 +404,28 @@ studentRouter.post("/orders", async (request, response) => {
     });
   }
 
+    // Orders are locked together with the note once it is submitted.
+  const { data: lockingNote, error: lockingNoteError } = await supabaseAdmin
+    .schema("learning")
+    .from("notes")
+    .select("status")
+    .eq("assignment_id", assignmentId)
+    .eq("note_type", "soap")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lockingNoteError) {
+    console.error("Unable to check note status:", lockingNoteError.message);
+    return response.status(500).json({ message: "Unable to save orders." });
+  }
+
+  if (lockingNote && ["Pending Review", "Approved"].includes(lockingNote.status)) {
+    return response.status(409).json({
+      message: "Orders are locked while your note is submitted or approved.",
+    });
+  }
+
   const existingOrders = orders.filter(
     (order) => typeof order.id === "number" && order.id < 1000000000000,
   );

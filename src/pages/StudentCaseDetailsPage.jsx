@@ -8,6 +8,7 @@ import {
   updateStudentCaseStatus,
 } from "../lib/api";
 import { noteStatusLabel } from "../lib/noteStatus";
+import InstructorFeedback from "../components/InstructorFeedback";
 
 const statusOrder = [
   "Scheduled",
@@ -265,6 +266,13 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
       </div>
 
       {error && <p role="alert">{error}</p>}
+      <InstructorFeedback
+                feedback={
+                  ["Returned", "Approved"].includes(savedNote?.status)
+                    ? savedNote?.feedback
+                    : null
+                }
+              />
 
       {/* CASE INFORMATION */}
       {activeTab === "case" && (
@@ -299,7 +307,7 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
                   : noteStatus === "Approved"
                   ? "Your instructor approved this note."
                   : noteStatus === "Returned"
-                  ? "Your instructor returned this note. Revise it and submit again."
+                  ? "Your instructor returned this note. Review the feedback above, revise, and submit again."
                   : hasNote
                   ? "You have a saved draft. Continue editing where you left off."
                   : "No clinical note has been started for this encounter."}
@@ -327,13 +335,17 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
               className="primary-button"
               type="button"
               disabled={
-                !encounterInProgress ||
-                noteStatus === "Pending Review" ||
-                noteStatus === "Approved"
-              }
+                        !encounterInProgress ||
+                        noteStatus === "Pending Review" ||
+                        noteStatus === "Approved"
+                      }
               onClick={() => navigateTo("noteForm")}
             >
-              {hasNote ? "Continue Note" : "Start Note"}
+              {noteStatus === "Returned"
+                ? "Revise Note"
+                : hasNote
+                ? "Continue Note"
+                : "Start Note"}
             </button>
           </div>
 
@@ -361,7 +373,11 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
             <button
               className="primary-button"
               type="button"
-              disabled={!encounterInProgress}
+              disabled={
+                        !encounterInProgress ||
+                        noteStatus === "Pending Review" ||
+                        noteStatus === "Approved"
+                      }
               onClick={() => navigateTo("orderEntry")}
             >
               Manage Orders
@@ -371,6 +387,12 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
           {!encounterInProgress && (
             <p className="case-help-text">
               Start the encounter before managing orders.
+            </p>
+          )}
+
+          {(noteStatus === "Pending Review" || noteStatus === "Approved") && (
+            <p className="case-help-text">
+              Orders are locked while your note is submitted or approved.
             </p>
           )}
         </section>
