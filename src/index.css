@@ -3895,3 +3895,72 @@ td small {
 .encounter-status-label { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .note-patient-summary p,
 .note-patient-summary li { font-size: 13px; line-height: 1.45; }
+
+.feedback-comments {
+  white-space: pre-wrap;
+}
+
+.feedback-date {
+  color: #8a94a8;
+}
+
+.feedback-panel {
+  margin-bottom: 20px;
+  border-left: 4px solid #d99a2b;
+}
+
+.review-decision {
+  margin-top: 24px;
+  border-top: 4px solid #6c7ae0;
+}
+
+.review-decision h2 {
+  margin: 4px 0 16px;
+}
+
+.review-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-field label {
+  font-weight: 600;
+  color: #1f2a44;
+}
+
+.review-field__hint {
+  font-weight: 400;
+  color: #8a94a8;
+}
+
+.review-field textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  font: inherit;
+  color: #1f2a44;
+  background: #fff;
+  border: 1px solid #d5dbe8;
+  border-radius: 12px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.review-field textarea:focus {
+  outline: 2px solid #6c7ae0;
+  outline-offset: 1px;
+}
+
+.review-field__count {
+  align-self: flex-end;
+  font-size: 0.75rem;
+  color: #8a94a8;
+}
+
+.review-decision__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
