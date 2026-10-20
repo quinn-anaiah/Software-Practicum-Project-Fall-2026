@@ -5,6 +5,7 @@ import rolesRouter from "./routes/roles.js";
 import casesRouter from "./routes/cases.js";
 import studentRouter from "./routes/student.js";
 import instructorRouter from "./routes/instructor.js";
+import patientRouter  from "./routes/patient.js";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -17,6 +18,7 @@ app.use("/api/cases", casesRouter);
 app.use("/api/student", studentRouter);
 app.use("/api/instructor", instructorRouter);
 app.use("/api", authRouter);
+app.use("/api/patient", patientRouter);
 
 app.listen(port, () => {
   console.log(`EMR API listening at http://localhost:${port}`);

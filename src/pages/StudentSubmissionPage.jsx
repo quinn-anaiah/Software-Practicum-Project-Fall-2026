@@ -3,7 +3,35 @@ import { useSearchParams } from "react-router-dom";
 import {
   fetchStudentCases,
   fetchStudentNote,
+  fetchStudentOrders,
 } from "../lib/api";
+import { noteStatusLabel } from "../lib/noteStatus";
+import InstructorFeedback from "../components/InstructorFeedback";
+
+// Calls the submission endpoint directly so this page does not require
+// a new named export in src/lib/api.js.
+async function submitStudentDocumentation(assignmentId) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+  if (!accessToken) {
+    throw new Error("No active session. Please sign in again.");
+  }
+
+  const response = await fetch("/api/student/submissions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ assignmentId }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.message || "Unable to submit documentation.");
+  }
+  return payload;
+}
+
 // Display Helpers
 function display(value) {
   if (
@@ -671,7 +699,7 @@ function SOAPNotePreview({ note, patientCase }) {
           <p>{patientCase.title}</p>
         </div>
         <span className="soap-status">
-          {note.status || "Draft"}
+          {noteStatusLabel(note.status || "Draft")}
         </span>
       </header>
       <div className="soap-preview-patient-header">
@@ -711,6 +739,9 @@ export default function StudentSubmissionPage({
   const [patientCase, setPatientCase] =
     useState(null);
   const [note, setNote] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -720,6 +751,7 @@ export default function StudentSubmissionPage({
       setError("");
       setPatientCase(null);
       setNote(null);
+      setOrders([]);
       if (!caseId) {
         setLoading(false);
         return;
@@ -734,11 +766,13 @@ export default function StudentSubmissionPage({
         if (!selectedCase) return;
         setPatientCase(selectedCase);
         if (selectedCase.assignment_id) {
-          const savedNote = await fetchStudentNote(
-            selectedCase.assignment_id
-          );
+          const [savedNote, savedOrders] = await Promise.all([
+            fetchStudentNote(selectedCase.assignment_id),
+            fetchStudentOrders(selectedCase.assignment_id),
+          ]);
           if (!isCurrent) return;
           setNote(savedNote || null);
+          setOrders(savedOrders || []);
         }
       } catch (loadError) {
         if (isCurrent) {
@@ -758,6 +792,31 @@ export default function StudentSubmissionPage({
       isCurrent = false;
     };
   }, [caseId]);
+  async function handleSubmit() {
+    if (!patientCase?.assignment_id || !note || submitting) return;
+
+    try {
+      setSubmitting(true);
+      setError("");
+      setSuccess("");
+      // const submittedNote = await submitStudentDocumentation(
+      //   patientCase.assignment_id
+      // );
+      // setNote(submittedNote);
+      await submitStudentDocumentation(patientCase.assignment_id);
+      // The submit route returns a message, not the note, so reload the note
+      // to show its new "Pending Review" status.
+      setNote(await fetchStudentNote(patientCase.assignment_id));
+      const savedOrders = await fetchStudentOrders(patientCase.assignment_id);
+      setOrders(savedOrders || []);
+      setSuccess("Documentation submitted for instructor review.");
+    } catch (submitError) {
+      setError(submitError.message || "Unable to submit documentation.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function goBackToCase() {
     onNavigate("caseDetail", {
       caseId: patientCase.id,
@@ -767,7 +826,7 @@ export default function StudentSubmissionPage({
     return (
       <div className="dashboard-page content-page">
         <p role="status">
-          Loading SOAP note preview...
+          Loading documentation preview...
         </p>
       </div>
     );
@@ -844,6 +903,65 @@ export default function StudentSubmissionPage({
             note={note}
             patientCase={patientCase}
           />
+        )}
+      </section>
+
+      <section className="panel data-panel">
+        <div className="soap-preview-topbar">
+          <div>
+            <h2>Saved Orders</h2>
+            <p>Review the orders saved for this patient encounter.</p>
+          </div>
+        </div>
+        {orders.length === 0 ? (
+          <p>No orders saved for this encounter.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Type</th>
+                  <th scope="col">Order</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td>{order.order_type}</td>
+                    <td>{order.order_name}</td>
+                    <td><span className="status-badge">{order.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <InstructorFeedback feedback={note?.feedback} />
+      
+      <section className="panel data-panel">
+        <h2>Submit for Instructor Review</h2>
+        {error && <p role="alert">{error}</p>}
+        {success && <p role="status">{success}</p>}
+        {note?.status === "Pending Review" ? (
+          <p role="status">This documentation has been submitted and is awaiting instructor review.</p>
+        ) : note?.status === "Approved" ? (
+          <p>This documentation has been approved.</p>
+        ) : (
+          <>
+            <p>Submitting locks the SOAP note and saved orders until an instructor returns the work for corrections.</p>
+            <button
+              className="primary-button"
+              type="button"
+              disabled={!note || submitting || !["Draft", "Returned"].includes(note?.status)}
+              onClick={handleSubmit}
+            >
+              {submitting ? "Submitting..." : "Submit for Instructor Review"}
+            </button>
+            {!note && <p>Save a SOAP note before submitting.</p>}
+          </>
         )}
       </section>
     </div>

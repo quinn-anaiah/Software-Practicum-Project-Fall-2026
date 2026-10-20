@@ -120,7 +120,8 @@ studentRouter.post("/notes", async (request, response) => {
     await supabaseAdmin
       .schema("learning")
       .from("notes")
-      .select("id")
+      // status is selected so the lock check below can see it
+      .select("id, status")
       .eq("assignment_id", assignmentId)
       .eq("note_type", "soap")
       .order("updated_at", { ascending: false })
@@ -137,6 +138,20 @@ studentRouter.post("/notes", async (request, response) => {
       message: "Unable to save note.",
     });
   }
+
+  /*jazmin change*/
+  // Locked while under review or approved; editable again only after the
+  // instructor returns it. Prevents a save from resetting status to "Draft".
+  if (
+    existingNote &&
+    ["Pending Review", "Approved"].includes(existingNote.status)
+  ) {
+    return response.status(409).json({
+      message:
+        "This note is locked. It can be edited again only if your instructor returns it.",
+    });
+  }
+  /*jazmin change end*/
 
   let result;
 
@@ -241,7 +256,28 @@ studentRouter.get("/notes/:assignmentId", async (request, response) => {
     });
   }
 
-  return response.json(data);
+  // Attach the latest instructor feedback, if the note has been reviewed.
+  let feedback = null;
+
+  if (data) {
+    const { data: review, error: reviewError } = await supabaseAdmin
+      .schema("learning")
+      .from("note_reviews")
+      .select("decision, comments, created_at")
+      .eq("note_id", data.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (reviewError) {
+      console.error("Unable to load feedback:", reviewError.message);
+      return response.status(500).json({ message: "Unable to load note." });
+    }
+
+    feedback = review;
+  }
+
+  return response.json(data ? { ...data, feedback } : data);
 });
 
 studentRouter.patch(
@@ -365,6 +401,28 @@ studentRouter.post("/orders", async (request, response) => {
   if (assignmentError || !assignment) {
     return response.status(403).json({
       message: "You do not have access to this case.",
+    });
+  }
+
+    // Orders are locked together with the note once it is submitted.
+  const { data: lockingNote, error: lockingNoteError } = await supabaseAdmin
+    .schema("learning")
+    .from("notes")
+    .select("status")
+    .eq("assignment_id", assignmentId)
+    .eq("note_type", "soap")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lockingNoteError) {
+    console.error("Unable to check note status:", lockingNoteError.message);
+    return response.status(500).json({ message: "Unable to save orders." });
+  }
+
+  if (lockingNote && ["Pending Review", "Approved"].includes(lockingNote.status)) {
+    return response.status(409).json({
+      message: "Orders are locked while your note is submitted or approved.",
     });
   }
 
@@ -532,6 +590,120 @@ studentRouter.get(
     return response.json(data);
   },
 );
+
+
+studentRouter.post("/submissions", async (request, response) => {
+  const authorization = request.headers.authorization;
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return response.status(401).json({
+      message: "Authentication required.",
+    });
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(authorization.slice(7));
+
+  if (authError || !user) {
+    return response.status(401).json({
+      message: "Invalid or expired session.",
+    });
+  }
+
+  const { assignmentId } = request.body || {};
+
+  if (!assignmentId) {
+    return response.status(400).json({
+      message: "Assignment is required.",
+    });
+  }
+
+  const admin = getSupabaseAdmin();
+
+  const { data: assignment, error: assignmentError } =
+    await admin
+      .schema("learning")
+      .from("student_case_assignments")
+      .select("id")
+      .eq("id", assignmentId)
+      .eq("student_id", user.id)
+      .maybeSingle();
+
+  if (assignmentError) {
+    return response.status(500).json({
+      message: "Unable to verify assignment.",
+    });
+  }
+
+  if (!assignment) {
+    return response.status(403).json({
+      message: "You do not have access to this case.",
+    });
+  }
+
+  const { data: note, error: noteError } = await admin
+    .schema("learning")
+    .from("notes")
+    .select("id, status, content")
+    .eq("assignment_id", assignmentId)
+    .eq("note_type", "soap")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (noteError) {
+    return response.status(500).json({
+      message: "Unable to load note.",
+    });
+  }
+
+  if (!note || !note.content) {
+    return response.status(400).json({
+      message: "Save a SOAP note before submitting.",
+    });
+  }
+
+  if (!["Draft", "Returned"].includes(note.status)) {
+    return response.status(409).json({
+      message: "This note cannot be submitted.",
+    });
+  }
+
+  const { data: submitted, error: submitError } =
+    await admin
+      .schema("learning")
+      .from("notes")
+      .update({
+        status: "Pending Review",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", note.id)
+      .eq("assignment_id", assignmentId)
+      .eq("status", note.status)
+      .select()
+      .maybeSingle();
+
+  if (submitError) {
+    console.error(submitError.message);
+    return response.status(500).json({
+      message: "Unable to submit documentation.",
+    });
+  }
+
+  if (!submitted) {
+    return response.status(409).json({
+      message: "Submission status changed. Refresh and try again.",
+    });
+  }
+
+  return response.json({
+    message: "Submitted for instructor review.",
+    note: submitted,
+  });
+});
+
 
 studentRouter.get("/classes", async (request, response) => {
   const authorization = request.headers.authorization;
