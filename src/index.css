@@ -80,6 +80,7 @@ button {
   width: 248px;
   height: 100vh;
   padding: 27px 16px 18px;
+  overflow-x: hidden;
   color: #aeb5ca;
   background: #18223d;
 }
@@ -117,12 +118,14 @@ button {
   display: grid;
   gap: 5px;
   margin-top: 49px;
+  min-width: 0;
 }
 .nav-item {
   display: flex;
   align-items: center;
   gap: 13px;
   width: 100%;
+  min-width: 0;
   padding: 12px 14px;
   border: 0;
   border-radius: 9px;
@@ -135,6 +138,10 @@ button {
     color 0.2s,
     background 0.2s,
     transform 0.2s;
+}
+.nav-item span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .nav-item:hover {
   color: #fff;
@@ -1822,6 +1829,25 @@ button {
 
 .admin-academics-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .admin-academics-actions .secondary-button, .admin-academics-actions .primary-button { display: inline-flex; align-items: center; gap: 7px; }
+.admin-metric-card { display: flex; align-items: center; min-height: 92px; gap: 13px; }
+.directory-metrics.admin-academics-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.admin-metric-card__icon { display: grid; flex: 0 0 38px; width: 38px; height: 38px; place-items: center; border-radius: 11px; }
+.admin-metric-card__icon--purple { color: #6374bf; background: #eef0ff; }
+.admin-metric-card__icon--blue { color: #3b78a7; background: #e8f5ff; }
+.admin-metric-card__icon--mint { color: #438e7a; background: #e7f8f1; }
+.admin-metric-card__icon--orange { color: #b87743; background: #fff1e5; }
+.admin-metric-card > div { display: grid; min-width: 0; align-content: center; }
+.admin-academic-insights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; margin-bottom: 17px; }
+.admin-mini-chart { min-width: 0; }
+.admin-mini-chart .panel__header > .icon { margin-top: 4px; color: #8491ae; }
+.admin-mini-chart h2 { margin: 2px 0 0; color: #34405b; font-family: Manrope, sans-serif; font-size: 18px; }
+.admin-bar-chart { display: grid; gap: 13px; margin-top: 18px; }
+.admin-bar-chart > div { display: grid; grid-template-columns: minmax(82px, .8fr) minmax(80px, 2fr) 25px; gap: 10px; align-items: center; }
+.admin-bar-chart span, .admin-bar-chart strong { overflow: hidden; color: #69758c; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-bar-chart strong { text-align: right; }
+.admin-bar-chart i { height: 8px; overflow: hidden; border-radius: 100px; background: #edf0f7; }
+.admin-bar-chart b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7185dc, #9aa9eb); }
+.admin-bar-chart--mint b { background: linear-gradient(90deg, #66bba5, #9bd9cb); }
 .admin-academics-form-panel { margin-bottom: 17px; }
 .admin-academics-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 17px; }
 .admin-academics-toolbar h2, .academic-detail-panel h2, .academic-student-panel h2 { margin: 2px 0 0; color: #34405b; font-family: Manrope, sans-serif; font-size: 18px; }
@@ -1884,7 +1910,7 @@ button {
 .directory-loading { margin: 25px 0 8px; color: #8590a4; font-size: 12px; }
 .directory-row--selected { background: #f5f7ff; }
 .directory-sidebar { display: grid; gap: 17px; }
-.account-modal-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(34, 43, 62, .38); backdrop-filter: blur(3px); }
+.account-modal-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(24, 34, 61, .12); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
 .account-detail-modal { box-sizing: border-box; width: min(680px, 100%); max-height: min(760px, calc(100vh - 48px)); padding: 24px; overflow-y: auto; box-shadow: 0 26px 72px rgba(37, 48, 72, .28); }
 .account-detail-modal .panel__header { align-items: flex-start; }
 .account-detail-modal dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2052,6 +2078,8 @@ button {
   .directory-search input { min-width: 210px; }
   .admin-form { grid-template-columns: 1fr 1fr; }
   .admin-academics-layout { grid-template-columns: 1fr; }
+  .directory-metrics.admin-academics-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-academic-insights { grid-template-columns: 1fr; }
   .academic-classroom-modal__grid { grid-template-columns: 1fr; }
   .instructor-overview-metrics { grid-template-columns: 1fr 1fr; }
   .instructor-overview-grid, .classes-layout { grid-template-columns: 1fr; }
@@ -2062,6 +2090,7 @@ button {
 @media (max-width: 520px) {
   .page-heading:has(.directory-create-button) { align-items: flex-start; gap: 14px; }
   .admin-form { grid-template-columns: 1fr; }
+  .directory-metrics.admin-academics-metrics { grid-template-columns: 1fr; }
   .account-modal-backdrop { align-items: end; padding: 12px; }
   .account-detail-modal { max-height: calc(100vh - 24px); padding: 19px; }
   .account-detail-modal dl { grid-template-columns: 1fr; }
@@ -2383,6 +2412,7 @@ button {
     height: auto;
     margin-inline: 0;
     padding: 12px 14px;
+    white-space: normal;
   }
   .sidebar:hover .nav-item--active,
   .sidebar--pinned .nav-item--active {

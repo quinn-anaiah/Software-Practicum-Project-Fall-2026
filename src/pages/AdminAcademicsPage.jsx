@@ -80,15 +80,15 @@ function AdminAcademicsPage() {
   );
   const classroomsPerPage = 8;
   const studentsPerPage = 10;
+  const selectedClassroom = academics.classrooms.find((classroom) => classroom.id === selectedClassroomId) || null;
   const paginatedClassrooms = visibleClassrooms.slice(
     (classroomPage - 1) * classroomsPerPage,
     classroomPage * classroomsPerPage,
   );
-  const paginatedStudents = academics.students.slice(
+  const paginatedStudents = (selectedClassroom?.students || []).slice(
     (studentPage - 1) * studentsPerPage,
     studentPage * studentsPerPage,
   );
-  const selectedClassroom = academics.classrooms.find((classroom) => classroom.id === selectedClassroomId) || null;
   const matchingInstructors = academics.instructors.filter(
     (instructor) => instructor.subroleId === selectedClassroom?.discipline_subrole_id,
   );
@@ -96,6 +96,20 @@ function AdminAcademicsPage() {
     (instructor) => String(instructor.subroleId) === String(classroomForm.disciplineSubroleId),
   );
   const activeClassrooms = academics.classrooms.filter((classroom) => classroom.status === "active").length;
+  const enrollmentByTerm = useMemo(() => Object.entries(
+    academics.classrooms.reduce((totals, classroom) => ({
+      ...totals,
+      [classroom.term]: (totals[classroom.term] || 0) + classroom.studentCount,
+    }), {}),
+  ).map(([term, count]) => ({ term, count })), [academics.classrooms]);
+  const classroomsByDiscipline = useMemo(() => Object.entries(
+    academics.classrooms.reduce((totals, classroom) => ({
+      ...totals,
+      [classroom.discipline]: (totals[classroom.discipline] || 0) + 1,
+    }), {}),
+  ).map(([discipline, count]) => ({ discipline, count })), [academics.classrooms]);
+  const largestTermEnrollment = Math.max(...enrollmentByTerm.map((item) => item.count), 1);
+  const largestDisciplineCount = Math.max(...classroomsByDiscipline.map((item) => item.count), 1);
 
   function updateClassroom(field, value) {
     setClassroomForm((current) => ({
@@ -200,10 +214,21 @@ function AdminAcademicsPage() {
       )}
 
       <section className="directory-metrics admin-academics-metrics">
-        <article className="panel"><span>Semesters on file</span><strong>{academics.semesters.length}</strong><small>All configured terms</small></article>
-        <article className="panel"><span>Active classrooms</span><strong>{activeClassrooms}</strong><small>Currently available courses</small></article>
-        <article className="panel"><span>Student accounts</span><strong>{academics.students.length}</strong><small>Profiles with Student access</small></article>
-        <article className="panel"><span>Faculty accounts</span><strong>{academics.instructors.length}</strong><small>Available for assignments</small></article>
+        <article className="panel admin-metric-card"><span className="admin-metric-card__icon admin-metric-card__icon--purple"><Icon name="calendar" size={18} /></span><div><span>Semesters on file</span><strong>{academics.semesters.length}</strong><small>All configured terms</small></div></article>
+        <article className="panel admin-metric-card"><span className="admin-metric-card__icon admin-metric-card__icon--blue"><Icon name="chart" size={18} /></span><div><span>Active classrooms</span><strong>{activeClassrooms}</strong><small>Currently available courses</small></div></article>
+        <article className="panel admin-metric-card"><span className="admin-metric-card__icon admin-metric-card__icon--mint"><Icon name="patients" size={18} /></span><div><span>Student accounts</span><strong>{academics.students.length}</strong><small>Profiles with Student access</small></div></article>
+        <article className="panel admin-metric-card"><span className="admin-metric-card__icon admin-metric-card__icon--orange"><Icon name="grid" size={18} /></span><div><span>Faculty accounts</span><strong>{academics.instructors.length}</strong><small>Available for assignments</small></div></article>
+      </section>
+
+      <section className="admin-academic-insights">
+        <article className="panel admin-mini-chart">
+          <div className="panel__header"><div><p className="section-label">Enrollment trend</p><h2>Students by semester</h2></div><Icon name="chart" size={19} /></div>
+          {enrollmentByTerm.length ? <div className="admin-bar-chart">{enrollmentByTerm.map((item) => <div key={item.term}><span>{item.term}</span><i><b style={{ width: `${(item.count / largestTermEnrollment) * 100}%` }} /></i><strong>{item.count}</strong></div>)}</div> : <p className="directory-loading">Create a classroom to begin tracking enrollment.</p>}
+        </article>
+        <article className="panel admin-mini-chart">
+          <div className="panel__header"><div><p className="section-label">Program coverage</p><h2>Classes by discipline</h2></div><Icon name="grid" size={19} /></div>
+          {classroomsByDiscipline.length ? <div className="admin-bar-chart admin-bar-chart--mint">{classroomsByDiscipline.map((item) => <div key={item.discipline}><span>{item.discipline}</span><i><b style={{ width: `${(item.count / largestDisciplineCount) * 100}%` }} /></i><strong>{item.count}</strong></div>)}</div> : <p className="directory-loading">Discipline coverage will appear when classrooms are added.</p>}
+        </article>
       </section>
 
       {isCreateOpen && (
@@ -245,7 +270,7 @@ function AdminAcademicsPage() {
         <section className="admin-classroom-directory">
           <article className="panel directory-table-panel">
             <div className="academic-class-list admin-scroll-list">
-              {paginatedClassrooms.map((classroom) => <button className={selectedClassroom?.id === classroom.id ? "academic-class-row academic-class-row--selected" : "academic-class-row"} key={classroom.id} onClick={() => setSelectedClassroomId(classroom.id)} type="button"><div><strong>{classroom.short_name}</strong><small>{classroom.full_name}</small></div><span>{classroom.term}</span><span>{classroom.discipline}</span><span>{classroom.studentCount} students</span></button>)}
+              {paginatedClassrooms.map((classroom) => <button className={selectedClassroom?.id === classroom.id ? "academic-class-row academic-class-row--selected" : "academic-class-row"} key={classroom.id} onClick={() => { setSelectedClassroomId(classroom.id); setStudentPage(1); }} type="button"><div><strong>{classroom.short_name}</strong><small>{classroom.full_name}</small></div><span>{classroom.term}</span><span>{classroom.discipline}</span><span>{classroom.studentCount} students</span></button>)}
               {!visibleClassrooms.length && <p className="directory-loading">No classrooms match this semester.</p>}
             </div>
             <Pagination currentPage={classroomPage} itemLabel="classrooms" onPageChange={setClassroomPage} pageSize={classroomsPerPage} totalItems={visibleClassrooms.length} />
@@ -280,7 +305,7 @@ function AdminAcademicsPage() {
                 <div className="academic-instructor-list"><strong>Assigned instructors</strong>{selectedClassroom.instructors.length ? selectedClassroom.instructors.map((instructor) => <div key={instructor.id}><span>{instructor.name.split(" ").map((part) => part[0]).join("")}</span><p>{instructor.name}<small>{instructor.accessLevel === "owner" ? "Lead instructor" : "Co-instructor"}</small></p></div>) : <p className="directory-loading">No instructor assigned yet.</p>}</div>
                 <form className="admin-form admin-form--compact" onSubmit={submitInstructor}><p className="section-label">Assign instructor</p><select onChange={(event) => setInstructorId(event.target.value)} required value={instructorId}><option value="">Choose {selectedClassroom.discipline} instructor</option>{matchingInstructors.filter((instructor) => !selectedClassroom.instructors.some((assigned) => assigned.id === instructor.id)).map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}</select><button className="secondary-button" disabled={isSaving || !matchingInstructors.length} type="submit">Assign instructor</button></form>
               </div>
-              <div className="academic-student-panel academic-student-panel--modal"><p className="section-label">Student directory</p><h2>All students</h2><div className="admin-scroll-list">{paginatedStudents.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!academics.students.length && <p className="directory-loading">No student profiles yet.</p>}</div><Pagination currentPage={studentPage} itemLabel="students" onPageChange={setStudentPage} pageSize={studentsPerPage} totalItems={academics.students.length} /></div>
+              <div className="academic-student-panel academic-student-panel--modal"><p className="section-label">Class roster</p><h2>Enrolled students</h2><div className="admin-scroll-list">{paginatedStudents.map((student) => <p key={student.id}><strong>{student.name}</strong><small>{student.subrole || "Discipline not set"}{student.utepId ? ` · ${student.utepId}` : ""}</small></p>)}{!selectedClassroom.students.length && <p className="directory-loading">No students are enrolled in this classroom yet.</p>}</div><Pagination currentPage={studentPage} itemLabel="enrolled students" onPageChange={setStudentPage} pageSize={studentsPerPage} totalItems={selectedClassroom.students.length} /></div>
             </section>
           </article>
         </section>

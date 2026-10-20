@@ -427,10 +427,23 @@ adminRouter.get("/academics", async (request, response) => {
       instructorsByClass.set(membership.classroom_id, current);
     });
     const enrollmentCounts = (enrollments || []).reduce((counts, row) => ({ ...counts, [row.classroom_id]: (counts[row.classroom_id] || 0) + 1 }), {});
+    const studentsByClass = new Map();
+    (enrollments || []).forEach((enrollment) => {
+      const profile = profileById.get(enrollment.student_id);
+      if (!profile || getRelationName(profile.roles) !== "Student") return;
+      const current = studentsByClass.get(enrollment.classroom_id) || [];
+      current.push({
+        id: profile.id,
+        name: `${profile.first_name} ${profile.last_name}`.trim(),
+        subrole: getRelationName(profile.subroles),
+        utepId: profile.utep_id || null,
+      });
+      studentsByClass.set(enrollment.classroom_id, current);
+    });
     const subroleById = new Map((subroles || []).map((subrole) => [subrole.id, subrole.name]));
     return response.json({
       semesters: [...new Set((classrooms || []).map((classroom) => classroom.term))],
-      classrooms: (classrooms || []).map((classroom) => ({ ...classroom, discipline: subroleById.get(classroom.discipline_subrole_id) || "Unassigned", instructors: instructorsByClass.get(classroom.id) || [], studentCount: enrollmentCounts[classroom.id] || 0 })),
+      classrooms: (classrooms || []).map((classroom) => ({ ...classroom, discipline: subroleById.get(classroom.discipline_subrole_id) || "Unassigned", instructors: instructorsByClass.get(classroom.id) || [], students: studentsByClass.get(classroom.id) || [], studentCount: enrollmentCounts[classroom.id] || 0 })),
       students: (profiles || []).filter((profile) => getRelationName(profile.roles) === "Student").map((profile) => ({ id: profile.id, name: `${profile.first_name} ${profile.last_name}`.trim(), subrole: getRelationName(profile.subroles), utepId: profile.utep_id || null })),
       instructors: (profiles || []).filter((profile) => getRelationName(profile.roles) === "Instructor").map((profile) => ({ id: profile.id, name: `${profile.first_name} ${profile.last_name}`.trim(), subroleId: profile.sub_role_id, subrole: getRelationName(profile.subroles) })),
       subroles: subroles || [],
