@@ -22,6 +22,7 @@ import SettingsPage from "../pages/SettingsPage";
 import StudentOverviewPage from "../pages/StudentOverviewPage";
 import StudentCaseDetailsPage from "../pages/StudentCaseDetailsPage";
 import StudentNoteFormPage from "../pages/StudentNoteFormPage";
+import PharmacyNotesPage from "../pages/PharmacyNotesPage";
 import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
 import StudentSubmissionPage from "../pages/StudentSubmissionPage";
 import StudentClassesPage from "../pages/StudentClassesPage";
@@ -121,6 +122,10 @@ const routesByRole = {
       noteForm: {
         path: "/student/note",
         Component: StudentNoteFormPage,
+      },
+      pharmacyNotes: {
+        path: "/student/pharmacy-notes",
+        Component: PharmacyNotesPage,
       },
       orderEntry: {
         path: "/student/orders",

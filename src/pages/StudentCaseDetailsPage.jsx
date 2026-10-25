@@ -347,6 +347,14 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
                 ? "Continue Note"
                 : "Start Note"}
             </button>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={!encounterInProgress}
+              onClick={() => navigateTo("pharmacyNotes")}
+            >
+              Pharmacy Documentation
+            </button>
           </div>
 
           {!encounterInProgress && (
