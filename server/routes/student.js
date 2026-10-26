@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { supabase, getSupabaseAdmin } from "../services/supabase.js";
+import { writeAuditLog } from "../services/auditLog.js";
 
 const studentRouter = Router();
 
@@ -192,6 +193,22 @@ studentRouter.post("/notes", async (request, response) => {
     return response.status(500).json({
       message: "Unable to save note.",
     });
+  }
+  //Derek change
+  //Record the note save in the audit log.
+  try {
+    await writeAuditLog( supabaseAdmin, {
+      actor_id: user.id,
+      action: existingNote ? "note.updated" : "note.created",
+      entity_type: "clinical_note",
+      entity_id: String(result.data.id),
+      details: {
+        assignment_id: assignmentId,
+        noteType: "soap",}
+    });
+    console.log("Audit log entry created for note save.");
+  } catch (error) {
+    console.error("Error writing audit log:", error);
   }
 
   return response.json(result.data);

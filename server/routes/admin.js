@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { randomBytes, randomInt } from "node:crypto";
 import { getSupabaseAdmin, supabase } from "../services/supabase.js";
+import { writeAuditLog } from "../services/auditLog.js";
 
 const adminRouter = Router();
 
@@ -67,15 +68,7 @@ function generateTemporaryPassword() {
   return `Cf!${randomBytes(18).toString("base64url")}9a`;
 }
 
-async function writeAuditLog(supabaseAdmin, entry) {
-  const { error } = await supabaseAdmin.from("admin_audit_log").insert(entry);
-  if (error) {
-    console.error("Unable to write admin audit log:", error.message);
-    throw new Error(
-      "Account management is not ready yet. Run the admin audit-log SQL setup first.",
-    );
-  }
-}
+
 
 async function ensureAuditLogReady(supabaseAdmin, response) {
   const { error } = await supabaseAdmin.from("admin_audit_log").select("id").limit(1);
