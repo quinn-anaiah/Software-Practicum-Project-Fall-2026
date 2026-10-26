@@ -224,7 +224,6 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
             ["case", "Case Information"],
             ["notes", "Notes"],
             ["orders", "Orders"],
-            ["review", "Review & Submit"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -302,31 +301,21 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
             <div>
               <h2>Clinical Notes</h2>
               <p>
-                {noteStatus === "Pending Review"
-                  ? "Your note has been submitted and is awaiting instructor review. It is locked until your instructor responds."
-                  : noteStatus === "Approved"
-                  ? "Your instructor approved this note."
-                  : noteStatus === "Returned"
-                  ? "Your instructor returned this note. Review the feedback above, revise, and submit again."
-                  : hasNote
-                  ? "You have a saved draft. Continue editing where you left off."
-                  : "No clinical note has been started for this encounter."}
+                Create, edit, and manage clinical documentation
+                for this patient encounter.
               </p>
             </div>
-
-              <span className="status-badge">{noteStatusLabel(noteStatus)}</span>
-            
           </div>
 
           <dl className="detail-form-grid">
             <div className="detail-field">
-              <dt>Note Type</dt>
-              <dd>SOAP Note</dd>
+              <dt>Documentation</dt>
+              <dd>Clinical Notes</dd>
             </div>
 
             <div className="detail-field">
-              <dt>Status</dt>
-              <dd>{noteStatusLabel(noteStatus)}</dd>
+              <dt>Available Templates</dt>
+              <dd>SOAP / SBAR</dd>
             </div>
           </dl>
 
@@ -334,37 +323,18 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
             <button
               className="primary-button"
               type="button"
-              disabled={
-                        !encounterInProgress ||
-                        noteStatus === "Pending Review" ||
-                        noteStatus === "Approved"
-                      }
-              onClick={() => navigateTo("noteForm")}
-            >
-              {noteStatus === "Returned"
-                ? "Revise Note"
-                : hasNote
-                ? "Continue Note"
-                : "Start Note"}
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={!encounterInProgress}
               onClick={() => navigateTo("pharmacyNotes")}
             >
-              Pharmacy Documentation
+              Open Clinical Notes
             </button>
           </div>
 
-          {!encounterInProgress && (
-            <p className="case-help-text">
-              Start the encounter before editing clinical notes.
-            </p>
-          )}
+          <p className="case-help-text">
+            Complete your clinical documentation and submit
+            it for instructor review.
+          </p>
         </section>
       )}
-
       {/* ORDERS */}
       {activeTab === "orders" && (
         <section className="panel data-panel case-section">
@@ -406,45 +376,6 @@ function StudentCaseDetailPage({ selectedCaseId, onNavigate }) {
         </section>
       )}
 
-      {/* REVIEW & SUBMIT */}
-      {activeTab === "review" && (
-        <section className="panel data-panel case-section">
-          <div className="case-section-heading">
-            <div>
-              <h2>Review & Submit</h2>
-              <p>
-                Review your saved SOAP note before
-                submitting it for instructor review.
-              </p>
-            </div>
-          </div>
-
-          <dl className="detail-form-grid">
-            <div className="detail-field">
-              <dt>SOAP Note</dt>
-              <dd>{noteStatusLabel(noteStatus)}</dd>
-            </div>
-          </dl>
-
-          <div className="form-actions">
-            <button
-              className="primary-button"
-              type="button"
-              disabled={!readyForReview}
-              onClick={() => navigateTo("submission")}
-            >
-              Review Documentation
-            </button>
-          </div>
-
-          {!readyForReview && (
-            <p className="case-help-text">
-              Start the encounter and save a SOAP note
-              before reviewing.
-            </p>
-          )}
-        </section>
-      )}
     </div>
   );
 }
