@@ -3,22 +3,9 @@ import { useSearchParams } from "react-router-dom";
 import PharmacyNotesPage from "./PharmacyNotesPage";
 import { fetchStudentCases, updateStudentCaseStatus } from "../lib/api";
 
-const tabs = [
-  "Overview",
-  "Medications",
-  "Labs",
-  "Notes",
-  "Appointments",
-  "Referrals",
-];
+const tabs = ["Overview", "Medications", "Labs", "Notes", "Appointments", "Referrals"];
 
-const statuses = [
-  "Scheduled",
-  "Checked in",
-  "Roomed",
-  "In progress",
-  "Checked out",
-];
+const statuses = ["Scheduled", "Checked in", "Roomed", "In progress", "Checked out"];
 
 const actions = {
   Scheduled: "Check In",
@@ -32,22 +19,15 @@ const text = (value) =>
 
 const formattedDate = (value) => {
   if (!value) return "Not recorded";
-
   const date = new Date(value);
-
-  return Number.isNaN(date.getTime())
-    ? String(value)
-    : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString();
 };
 
 const ordered = (values, keys) =>
   Array.isArray(values)
     ? [...values].sort((a, b) => {
         const time = (item) =>
-          new Date(
-            keys.map((key) => item?.[key]).find(Boolean) || 0
-          ).getTime() || 0;
-
+          new Date(keys.map((key) => item?.[key]).find(Boolean) || 0).getTime() || 0;
         return time(b) - time(a);
       })
     : [];
@@ -64,9 +44,7 @@ function Value({ value }) {
           </li>
         ))}
       </ul>
-    ) : (
-      "Not recorded"
-    );
+    ) : "Not recorded";
   }
 
   if (typeof value === "object") {
@@ -79,9 +57,7 @@ function Value({ value }) {
         {Object.entries(value).map(([key, item]) => (
           <div key={key}>
             <dt>{key.replaceAll("_", " ")}</dt>
-            <dd>
-              <Value value={item} />
-            </dd>
+            <dd><Value value={item} /></dd>
           </div>
         ))}
       </dl>
@@ -98,7 +74,6 @@ function Card({ title, children, action }) {
         <h2>{title}</h2>
         {action}
       </div>
-
       {children}
     </section>
   );
@@ -108,9 +83,7 @@ function Row({ label, value }) {
   return (
     <div className="detail-field">
       <dt>{label}</dt>
-      <dd>
-        <Value value={value} />
-      </dd>
+      <dd><Value value={value} /></dd>
     </div>
   );
 }
@@ -125,12 +98,9 @@ function DataTable({ columns, rows }) {
       <table>
         <thead>
           <tr>
-            {columns.map(([name]) => (
-              <th key={name}>{name}</th>
-            ))}
+            {columns.map(([name]) => <th key={name}>{name}</th>)}
           </tr>
         </thead>
-
         <tbody>
           {rows.map((item, index) => (
             <tr key={item.id ?? index}>
@@ -175,34 +145,19 @@ export default function StudentCaseDetailPage({
 
     async function loadPatient() {
       try {
-        if (caseId == null) {
-          throw new Error("No case selected.");
-        }
+        if (caseId == null) throw new Error("No case selected.");
 
         const result = await fetchStudentCases();
-
-        const cases = Array.isArray(result)
-          ? result
-          : result?.cases || [];
+        const cases = Array.isArray(result) ? result : result?.cases || [];
 
         const selected =
-          cases.find(
-            (item) => String(item.id) === String(caseId)
-          ) ||
-          cases.find(
-            (item) =>
-              String(item.assignment_id) === String(caseId)
-          );
+          cases.find((item) => String(item.id) === String(caseId)) ||
+          cases.find((item) => String(item.assignment_id) === String(caseId));
 
-        if (!selected) {
-          throw new Error("Case not found.");
-        }
-
+        if (!selected) throw new Error("Case not found.");
         if (active) setPatient(selected);
       } catch (err) {
-        if (active) {
-          setError(err.message || "Unable to load patient.");
-        }
+        if (active) setError(err.message || "Unable to load patient.");
       } finally {
         if (active) setLoading(false);
       }
@@ -227,13 +182,8 @@ export default function StudentCaseDetailPage({
 
     const updateCount = () => {
       try {
-        const notes = JSON.parse(
-          localStorage.getItem(key) || "[]"
-        );
-
-        setNoteCount(
-          Array.isArray(notes) ? notes.length : 0
-        );
+        const notes = JSON.parse(localStorage.getItem(key) || "[]");
+        setNoteCount(Array.isArray(notes) ? notes.length : 0);
       } catch {
         setNoteCount(0);
       }
@@ -248,7 +198,7 @@ export default function StudentCaseDetailPage({
       window.removeEventListener("focus", updateCount);
       window.removeEventListener("notes-updated", updateCount);
     };
-  }, [patient, user?.id]);
+  }, [patient, user?.id, tab]);
 
   async function advanceStatus() {
     const current =
@@ -258,13 +208,7 @@ export default function StudentCaseDetailPage({
 
     const index = statuses.indexOf(current);
 
-    if (
-      updating ||
-      index < 0 ||
-      index >= statuses.length - 1
-    ) {
-      return;
-    }
+    if (updating || index < 0 || index >= statuses.length - 1) return;
 
     setUpdating(true);
     setError("");
@@ -272,19 +216,14 @@ export default function StudentCaseDetailPage({
     try {
       const next = statuses[index + 1];
 
-      await updateStudentCaseStatus(
-        patient.assignment_id,
-        next
-      );
+      await updateStudentCaseStatus(patient.assignment_id, next);
 
       setPatient((previous) => ({
         ...previous,
         encounter_status: next,
       }));
     } catch (err) {
-      setError(
-        err.message || "Unable to update encounter status."
-      );
+      setError(err.message || "Unable to update encounter status.");
     } finally {
       setUpdating(false);
     }
@@ -301,10 +240,7 @@ export default function StudentCaseDetailPage({
   if (!patient) {
     return (
       <div className="dashboard-page content-page">
-        <p role="alert">
-          {error || "Case not found."}
-        </p>
-
+        <p role="alert">{error || "Case not found."}</p>
         <button
           className="secondary-button"
           onClick={() => onNavigate?.("overview")}
@@ -352,14 +288,10 @@ export default function StudentCaseDetailPage({
   const allergyGroups = {
     Medication:
       patient.medication_allergies ??
-      (categorized
-        ? allergies.medication ?? allergies.medications
-        : null),
-
+      (categorized ? allergies.medication ?? allergies.medications : null),
     Food:
       patient.food_allergies ??
       (categorized ? allergies.food : null),
-
     Environmental:
       patient.environmental_allergies ??
       (categorized ? allergies.environmental : null),
@@ -374,8 +306,8 @@ export default function StudentCaseDetailPage({
       .filter((item) => {
         const when = new Date(
           item.scheduled_at ??
-            item.appointment_date ??
-            item.date
+          item.appointment_date ??
+          item.date
         ).getTime();
 
         return (
@@ -385,39 +317,23 @@ export default function StudentCaseDetailPage({
           )
         );
       })
-      .sort(
-        (a, b) =>
-          new Date(
-            a.scheduled_at ??
-              a.appointment_date ??
-              a.date
-          ) -
-          new Date(
-            b.scheduled_at ??
-              b.appointment_date ??
-              b.date
-          )
+      .sort((a, b) =>
+        new Date(a.scheduled_at ?? a.appointment_date ?? a.date) -
+        new Date(b.scheduled_at ?? b.appointment_date ?? b.date)
       )[0] ?? patient.next_appointment;
 
   const vitalsList = [
     [
       "Blood Pressure",
       vitals?.blood_pressure ??
-        (vitals?.systolic != null &&
-        vitals?.diastolic != null
+        (vitals?.systolic != null && vitals?.diastolic != null
           ? `${vitals.systolic}/${vitals.diastolic} mmHg`
           : null),
     ],
     ["Heart Rate", vitals?.heart_rate ?? vitals?.pulse],
     ["Temperature", vitals?.temperature],
-    [
-      "Respiratory Rate",
-      vitals?.respiratory_rate ?? vitals?.respirations,
-    ],
-    [
-      "Oxygen Saturation",
-      vitals?.spo2 ?? vitals?.oxygen_saturation,
-    ],
+    ["Respiratory Rate", vitals?.respiratory_rate ?? vitals?.respirations],
+    ["Oxygen Saturation", vitals?.spo2 ?? vitals?.oxygen_saturation],
     ["Weight", vitals?.weight],
   ];
 
@@ -434,9 +350,7 @@ export default function StudentCaseDetailPage({
   return (
     <div
       className="dashboard-page content-page"
-      style={{
-        paddingTop: 16,
-      }}
+      style={{ paddingTop: 16 }}
     >
       <section
         className="page-heading case-header"
@@ -445,7 +359,7 @@ export default function StudentCaseDetailPage({
           alignItems: "center",
           justifyContent: "space-between",
           gap: 16,
-          marginBottom: 12,
+          marginBottom: 8,
           padding: 0,
         }}
       >
@@ -460,19 +374,14 @@ export default function StudentCaseDetailPage({
           <h1
             style={{
               margin: "0 0 4px",
-              fontSize: 30,
+              fontSize: 28,
               lineHeight: 1.2,
             }}
           >
             {patient.patient_name}
           </h1>
 
-          <p
-            style={{
-              margin: 0,
-              fontSize: 14,
-            }}
-          >
+          <p style={{ margin: 0, fontSize: 14 }}>
             {text(patient.patient_age)} years ·{" "}
             {text(patient.patient_sex)} · {patient.title}
           </p>
@@ -488,59 +397,6 @@ export default function StudentCaseDetailPage({
         </button>
       </section>
 
-      <section
-        className="panel data-panel"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
-          padding: "10px 16px",
-          marginBottom: 12,
-        }}
-      >
-        <div>
-          <p
-            className="section-label"
-            style={{ margin: "0 0 4px" }}
-          >
-            Encounter Status
-          </p>
-
-          <span className="status-badge">
-            {encounter}
-          </span>
-        </div>
-
-        <div style={{ flex: "1 1 300px" }}>
-          <p
-            className="section-label"
-            style={{ margin: "0 0 4px" }}
-          >
-            Chief Complaint
-          </p>
-
-          <strong style={{ fontSize: 14 }}>
-            {text(patient.chief_complaint)}
-          </strong>
-        </div>
-
-        {actions[encounter] && (
-          <button
-            type="button"
-            className="primary-button"
-            disabled={updating}
-            onClick={advanceStatus}
-            style={{ flexShrink: 0 }}
-          >
-            {updating
-              ? "Updating..."
-              : actions[encounter]}
-          </button>
-        )}
-      </section>
-
       {error && <p role="alert">{error}</p>}
 
       <div
@@ -552,14 +408,13 @@ export default function StudentCaseDetailPage({
             : "150px minmax(0, 1fr)",
           gap: 12,
           alignItems: "start",
+          marginTop: 0,
         }}
       >
         <aside
           className="panel data-panel"
           style={{
-            padding: collapsed
-              ? "10px 5px"
-              : "12px 8px",
+            padding: collapsed ? "10px 5px" : "12px 8px",
           }}
         >
           <div
@@ -592,9 +447,7 @@ export default function StudentCaseDetailPage({
               }}
               onClick={() => setCollapsed(!collapsed)}
               aria-label={
-                collapsed
-                  ? "Expand navigation"
-                  : "Collapse navigation"
+                collapsed ? "Expand navigation" : "Collapse navigation"
               }
             >
               {collapsed ? "»" : "«"}
@@ -614,33 +467,20 @@ export default function StudentCaseDetailPage({
                 key={item}
                 type="button"
                 className="patient-nav-button"
-                aria-current={
-                  tab === item ? "page" : undefined
-                }
+                aria-current={tab === item ? "page" : undefined}
                 title={item}
                 onClick={() => setTab(item)}
                 style={{
                   width: "100%",
                   padding: "11px 8px",
-                  textAlign: collapsed
-                    ? "center"
-                    : "left",
+                  textAlign: collapsed ? "center" : "left",
                   border: `1px solid ${
-                    tab === item
-                      ? "#16a78b"
-                      : "#e5e9f0"
+                    tab === item ? "#16a78b" : "#e5e9f0"
                   }`,
                   borderRadius: 9,
-                  background:
-                    tab === item
-                      ? "#16a78b"
-                      : "#f7f9fc",
-                  color:
-                    tab === item
-                      ? "white"
-                      : "#53627b",
-                  fontWeight:
-                    tab === item ? 700 : 600,
+                  background: tab === item ? "#16a78b" : "#f7f9fc",
+                  color: tab === item ? "white" : "#53627b",
+                  fontWeight: tab === item ? 700 : 600,
                   fontSize: 12,
                   cursor: "pointer",
                 }}
@@ -656,20 +496,72 @@ export default function StudentCaseDetailPage({
         </aside>
 
         <main style={{ minWidth: 0 }}>
+          <section
+            className="panel data-panel"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 12,
+              padding: "10px 16px",
+              marginBottom: 12,
+            }}
+          >
+
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <p
+                className="section-label"
+                style={{ margin: "0 0 4px", fontSize: 11 }}
+              >
+                Chief Complaint
+              </p>
+
+              <strong style={{ fontSize: 13 }}>
+                {text(patient.chief_complaint)}
+              </strong>
+            </div>
+
+            <div style={{ minWidth: 110 }}>
+              <p
+                className="section-label"
+                style={{ margin: "0 0 4px", fontSize: 11 }}
+              >
+                Encounter Status
+              </p>
+
+              <span className="status-badge">
+                {encounter}
+              </span>
+            </div>
+
+            {actions[encounter] && (
+              <button
+                type="button"
+                className="primary-button"
+                disabled={updating}
+                onClick={advanceStatus}
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  flexShrink: 0,
+                }}
+              >
+                {updating ? "Updating..." : actions[encounter]}
+              </button>
+            )}
+          </section>
+
           {tab === "Overview" && (
             <>
               <div
                 className="case-section-heading"
-                style={{
-                  marginBottom: 12,
-                }}
+                style={{ marginBottom: 12 }}
               >
                 <div>
                   <p
                     className="section-label"
-                    style={{
-                      margin: "0 0 4px",
-                    }}
+                    style={{ margin: "0 0 4px" }}
                   >
                     Patient Overview
                   </p>
@@ -690,20 +582,11 @@ export default function StudentCaseDetailPage({
               >
                 <Card title="Demographics">
                   <dl className="detail-form-grid">
-                    <Row
-                      label="Age"
-                      value={patient.patient_age}
-                    />
-                    <Row
-                      label="Sex"
-                      value={patient.patient_sex}
-                    />
+                    <Row label="Age" value={patient.patient_age} />
+                    <Row label="Sex" value={patient.patient_sex} />
                     <Row
                       label="Date of Birth"
-                      value={
-                        patient.date_of_birth ??
-                        patient.dob
-                      }
+                      value={patient.date_of_birth ?? patient.dob}
                     />
                     <Row
                       label="MRN"
@@ -717,20 +600,15 @@ export default function StudentCaseDetailPage({
 
                 <Card title="Allergies">
                   {hasCategories ? (
-                    Object.entries(allergyGroups).map(
-                      ([label, value]) => (
-                        <Row
-                          key={label}
-                          label={label}
-                          value={value}
-                        />
-                      )
-                    )
+                    Object.entries(allergyGroups).map(([label, value]) => (
+                      <Row
+                        key={label}
+                        label={label}
+                        value={value}
+                      />
+                    ))
                   ) : (
-                    <>
-
-                      <Value value={allergies} />
-                    </>
+                    <Value value={allergies} />
                   )}
                 </Card>
 
@@ -751,23 +629,21 @@ export default function StudentCaseDetailPage({
                   {vitals ? (
                     <>
                       <dl className="detail-form-grid">
-                        {vitalsList.map(
-                          ([label, value]) => (
-                            <Row
-                              key={label}
-                              label={label}
-                              value={value}
-                            />
-                          )
-                        )}
+                        {vitalsList.map(([label, value]) => (
+                          <Row
+                            key={label}
+                            label={label}
+                            value={value}
+                          />
+                        ))}
                       </dl>
 
                       <p className="case-help-text">
                         Last recorded:{" "}
                         {formattedDate(
                           vitals.recorded_at ??
-                            vitals.measured_at ??
-                            vitals.date
+                          vitals.measured_at ??
+                          vitals.date
                         )}
                       </p>
                     </>
@@ -784,22 +660,19 @@ export default function StudentCaseDetailPage({
                 >
                   {labs.length ? (
                     <dl className="detail-form-grid">
-                      {labs.slice(0, 5).map(
-                        (lab, index) => (
-                          <Row
-                            key={lab.id ?? index}
-                            label={
-                              lab.test_name ??
-                              lab.name ??
-                              "Lab"
-                            }
-                            value={`${text(
-                              lab.result ??
-                                lab.value
-                            )} ${lab.unit || ""}`}
-                          />
-                        )
-                      )}
+                      {labs.slice(0, 5).map((lab, index) => (
+                        <Row
+                          key={lab.id ?? index}
+                          label={
+                            lab.test_name ??
+                            lab.name ??
+                            "Lab"
+                          }
+                          value={`${text(
+                            lab.result ?? lab.value
+                          )} ${lab.unit || ""}`}
+                        />
+                      ))}
                     </dl>
                   ) : (
                     <p className="case-help-text">
@@ -820,8 +693,7 @@ export default function StudentCaseDetailPage({
                   action={action("Appointments")}
                 >
                   {nextAppointment ? (
-                    typeof nextAppointment ===
-                    "object" ? (
+                    typeof nextAppointment === "object" ? (
                       <dl className="detail-form-grid">
                         <Row
                           label="Appointment"
@@ -836,22 +708,18 @@ export default function StudentCaseDetailPage({
                           label="Date"
                           value={formattedDate(
                             nextAppointment.scheduled_at ??
-                              nextAppointment.appointment_date ??
-                              nextAppointment.date
+                            nextAppointment.appointment_date ??
+                            nextAppointment.date
                           )}
                         />
 
                         <Row
                           label="Provider"
-                          value={
-                            nextAppointment.provider
-                          }
+                          value={nextAppointment.provider}
                         />
                       </dl>
                     ) : (
-                      <Value
-                        value={nextAppointment}
-                      />
+                      <Value value={nextAppointment} />
                     )
                   ) : (
                     <p className="case-help-text">
@@ -865,16 +733,12 @@ export default function StudentCaseDetailPage({
                 className="panel data-panel case-section"
                 style={{ marginTop: 16 }}
               >
-                <h2>
-                  Additional Patient Information
-                </h2>
+                <h2>Additional Patient Information</h2>
 
                 <dl className="detail-form-grid">
                   <Row
                     label="Chief Complaint"
-                    value={
-                      patient.chief_complaint
-                    }
+                    value={patient.chief_complaint}
                   />
 
                   <Row
@@ -887,9 +751,7 @@ export default function StudentCaseDetailPage({
 
                   <Row
                     label="Surgical History"
-                    value={
-                      patient.surgical_history
-                    }
+                    value={patient.surgical_history}
                   />
                 </dl>
               </section>
@@ -898,13 +760,8 @@ export default function StudentCaseDetailPage({
 
           {tab === "Medications" && (
             <Card title="Medications">
-              <Value
-                value={patient.medications}
-              />
+              <Value value={patient.medications} />
 
-              <p className="case-help-text">
-                Medication editing and archival require backend support.
-              </p>
             </Card>
           )}
 
@@ -924,8 +781,7 @@ export default function StudentCaseDetailPage({
                     "Result",
                     (item) =>
                       `${text(
-                        item.result ??
-                          item.value
+                        item.result ?? item.value
                       )} ${item.unit || ""}`,
                   ],
                   [
@@ -938,8 +794,8 @@ export default function StudentCaseDetailPage({
                     (item) =>
                       formattedDate(
                         item.collected_at ??
-                          item.recorded_at ??
-                          item.date
+                        item.recorded_at ??
+                        item.date
                       ),
                   ],
                 ]}
@@ -980,19 +836,17 @@ export default function StudentCaseDetailPage({
                     (item) =>
                       formattedDate(
                         item.scheduled_at ??
-                          item.appointment_date ??
-                          item.date
+                        item.appointment_date ??
+                        item.date
                       ),
                   ],
                   [
                     "Provider",
-                    (item) =>
-                      text(item.provider),
+                    (item) => text(item.provider),
                   ],
                   [
                     "Status",
-                    (item) =>
-                      text(item.status),
+                    (item) => text(item.status),
                   ],
                 ]}
               />
@@ -1006,25 +860,22 @@ export default function StudentCaseDetailPage({
                 columns={[
                   [
                     "Specialty",
-                    (item) =>
-                      text(item.specialty),
+                    (item) => text(item.specialty),
                   ],
                   [
                     "Reason",
-                    (item) =>
-                      text(item.reason),
+                    (item) => text(item.reason),
                   ],
                   [
                     "Status",
-                    (item) =>
-                      text(item.status),
+                    (item) => text(item.status),
                   ],
                   [
                     "Date",
                     (item) =>
                       formattedDate(
                         item.created_at ??
-                          item.date
+                        item.date
                       ),
                   ],
                 ]}
