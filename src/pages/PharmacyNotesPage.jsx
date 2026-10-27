@@ -21,12 +21,15 @@ const ICD = [
 ];
 
 const CPT = ["99211", "99212", "99213", "99214", "99215"].map(
-  (code, i) => [code, `Established patient office visit — level ${i + 1}`]
+  (code, index) => [
+    code,
+    `Established patient office visit — level ${index + 1}`,
+  ]
 );
 
 const TEMPLATES = {
   pharmacy_soap: {
-    label: "Pharmacy SOAP (Ambulatory Care)",
+    label: "SOAP (Ambulatory Care)",
     sections: [
       ["Subjective", [
         ["hpi", "History of Present Illness / OLDCARTS"],
@@ -53,7 +56,7 @@ const TEMPLATES = {
     ],
   },
   pharmacy_sbar: {
-    label: "Pharmacy SBAR (Inpatient)",
+    label: "SBAR (Inpatient)",
     sections: [
       ["Situation", [
         ["situation", "Current Situation / Reason for Communication"],
@@ -116,39 +119,33 @@ const MEDICATION = [
   ["issues", "Side Effects / Access Issues"],
 ];
 
-const uid = () =>
-  globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+const uid = () => crypto.randomUUID();
 
 const blank = (fields) => ({
   id: uid(),
-  ...Object.fromEntries(fields.map(([k]) => [k, ""])),
+  ...Object.fromEntries(fields.map(([key]) => [key, ""])),
 });
 
-const read = (key) => {
+const readNotes = (key) => {
   try {
-    const data = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(data) ? data : [];
+    const notes = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(notes) ? notes : [];
   } catch {
     return [];
   }
 };
 
-const shown = (value) =>
-  value == null || value === ""
-    ? "Not provided"
-    : Array.isArray(value)
-      ? value.map(shown).join(", ") || "Not provided"
-      : typeof value === "object"
-        ? JSON.stringify(value)
-        : String(value);
+const shown = (value) => {
+  if (value == null || value === "") return "Not provided";
+  if (Array.isArray(value)) return value.map(shown).join(", ") || "Not provided";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+};
 
-const date = (value) =>
+const formatDate = (value) =>
   value ? new Date(value).toLocaleString() : "—";
 
 const locked = (note) =>
   ["Pending Review", "Submitted", "Approved", "Signed"].includes(note?.status);
-
-const box = { padding: "1rem", marginBottom: "1rem" };
 
 const row = {
   display: "flex",
@@ -156,6 +153,8 @@ const row = {
   flexWrap: "wrap",
   alignItems: "center",
 };
+
+const box = { padding: "1rem", marginBottom: "1rem" };
 
 const modal = {
   position: "fixed",
@@ -169,10 +168,7 @@ const modal = {
 
 function Field({ label, value, change, type = "textarea", options, disabled }) {
   return (
-    <label
-      className="detail-field"
-      style={{ display: "block", marginBottom: "1rem" }}
-    >
+    <label className="detail-field" style={{ display: "block", marginBottom: "1rem" }}>
       <span style={{ display: "block", marginBottom: 6 }}>{label}</span>
 
       {options ? (
@@ -181,14 +177,17 @@ function Field({ label, value, change, type = "textarea", options, disabled }) {
           disabled={disabled}
           onChange={(e) => change(e.target.value)}
         >
-          {options.map((o) => (
-            <option
-              key={typeof o === "string" ? o : o.value}
-              value={typeof o === "string" ? o : o.value}
-            >
-              {typeof o === "string" ? o : o.label}
-            </option>
-          ))}
+          {options.map((option) => {
+            const item = typeof option === "string"
+              ? { value: option, label: option }
+              : option;
+
+            return (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            );
+          })}
         </select>
       ) : type === "textarea" ? (
         <textarea
@@ -219,15 +218,19 @@ function Search({ label, codes, value, onPick, disabled }) {
     setQuery(item ? item.join(" — ") : value || "");
   }, [value, codes]);
 
+  const results = codes.filter(([code, description]) =>
+    `${code} ${description}`.toLowerCase().includes(query.toLowerCase())
+  );
+
   return (
     <div style={{ position: "relative", marginBottom: "1rem" }}>
       <Field
         label={label}
-        value={query}
         type="text"
+        value={query}
         disabled={disabled}
-        change={(v) => {
-          setQuery(v);
+        change={(value) => {
+          setQuery(value);
           setOpen(true);
         }}
       />
@@ -246,36 +249,28 @@ function Search({ label, codes, value, onPick, disabled }) {
         <div
           className="panel"
           style={{
+            ...box,
             position: "absolute",
             zIndex: 5,
             width: "100%",
             maxHeight: 220,
             overflowY: "auto",
-            ...box,
           }}
         >
-          {codes
-            .filter(([code, desc]) =>
-              `${code} ${desc}`.toLowerCase().includes(query.toLowerCase())
-            )
-            .map(([code, desc]) => (
-              <button
-                type="button"
-                className="secondary-button"
-                key={code}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                }}
-                onClick={() => {
-                  onPick(code, desc);
-                  setOpen(false);
-                }}
-              >
-                {code} — {desc}
-              </button>
-            ))}
+          {results.map(([code, description]) => (
+            <button
+              key={code}
+              type="button"
+              className="secondary-button"
+              style={{ display: "block", width: "100%", textAlign: "left" }}
+              onClick={() => {
+                onPick(code, description);
+                setOpen(false);
+              }}
+            >
+              {code} — {description}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -290,9 +285,14 @@ function Details({ items }) {
   ));
 }
 
-export default function PharmacyNotesPage({ onNavigate, user }) {
+export default function PharmacyNotesPage({
+  onNavigate,
+  user,
+  selectedCaseId,
+  embedded = false,
+}) {
   const [params] = useSearchParams();
-  const caseId = params.get("id");
+  const caseId = selectedCaseId ?? params.get("id") ?? params.get("caseId");
 
   const [patient, setPatient] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -306,13 +306,14 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const key = patient &&
-    `pharmacy-notes:${user?.id || "unknown"}:${patient.assignment_id ?? patient.id}`;
+  const key = patient
+    ? `pharmacy-notes:${user?.id || "unknown"}:${patient.assignment_id ?? patient.id}`
+    : null;
 
-  const saved = notes.find((n) => n.id === draft?.id);
+  const saved = notes.find((note) => note.id === draft?.id);
   const readOnly = locked(draft);
-  const template = TEMPLATES[draft?.type || "pharmacy_soap"];
-  const [sectionName, sectionFields] = template.sections[tab];
+  const template = TEMPLATES[draft?.type] || TEMPLATES.pharmacy_soap;
+  const [sectionName, sectionFields] = template.sections[tab] || template.sections[0];
 
   const soap = draft?.type === "pharmacy_soap";
   const content = draft?.content || {};
@@ -320,10 +321,9 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
   const problems = draft?.problems || [];
   const medications = draft?.medications || [];
 
-  const bmi =
-    +vitals.height > 0 && +vitals.weight > 0
-      ? (+vitals.weight / (+vitals.height / 100) ** 2).toFixed(1)
-      : "";
+  const bmi = +vitals.height > 0 && +vitals.weight > 0
+    ? (+vitals.weight / (+vitals.height / 100) ** 2).toFixed(1)
+    : "";
 
   const chart = [
     ["Chief Complaint", patient?.chief_complaint],
@@ -336,67 +336,67 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
   useEffect(() => {
     let active = true;
 
-    (async () => {
+    async function load() {
       setLoading(true);
       setError("");
+      setPatient(null);
 
       try {
-        if (!caseId) throw Error("No case selected.");
+        if (!caseId) throw new Error("No case selected.");
 
         const result = await fetchStudentCases();
         const cases = Array.isArray(result) ? result : result?.cases || [];
 
         const found = cases.find(
-          (c) =>
-            String(c.id) === String(caseId) ||
-            String(c.assignment_id) === String(caseId)
+          (item) => String(item.id) === String(caseId)
+        ) || cases.find(
+          (item) => String(item.assignment_id) === String(caseId)
         );
 
-        if (!found) throw Error("Case not found.");
+        if (!found) throw new Error("Case not found.");
         if (active) setPatient(found);
-      } catch (e) {
-        if (active) setError(e.message);
+      } catch (err) {
+        if (active) setError(err.message);
       } finally {
         if (active) setLoading(false);
       }
-    })();
+    }
 
-    return () => {
-      active = false;
-    };
+    load();
+    return () => { active = false; };
   }, [caseId]);
 
   useEffect(() => {
-    if (key) {
-      setNotes(read(key));
-      setDraft(null);
-      setEditor(null);
-      setShowSubmit(false);
-    }
+    if (!key) return;
+    setNotes(readNotes(key));
+    setDraft(null);
+    setEditor(null);
+    setShowSubmit(false);
   }, [key]);
 
-  function save(note, close = false) {
+  function persist(note, close = false, statusMessage = "Saved") {
     if (!key) return false;
 
     try {
       const now = new Date().toISOString();
-
       const clean = {
         ...note,
-        title: note.title?.trim() || TEMPLATES[note.type].label,
+        title: note.title?.trim() || TEMPLATES[note.type]?.label || "Untitled Note",
         createdAt: note.createdAt || now,
         updatedAt: now,
         dirty: false,
       };
 
-      const next = [clean, ...read(key).filter((n) => n.id !== clean.id)];
+      const next = [
+        clean,
+        ...readNotes(key).filter((item) => item.id !== clean.id),
+      ];
 
       localStorage.setItem(key, JSON.stringify(next));
       setNotes(next);
       setDraft(close ? null : clean);
-      setMessage("Saved");
+      setMessage(statusMessage);
       setError("");
-
       return true;
     } catch {
       setError("Unable to save note.");
@@ -404,44 +404,12 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
     }
   }
 
-  useEffect(() => {
-    if (!draft?.dirty || readOnly || !key) return;
+  function update(patch) {
+    if (readOnly || !draft) return;
 
-    const timer = setTimeout(() => {
-      try {
-        const now = new Date().toISOString();
-
-        const clean = {
-          ...draft,
-          title: draft.title?.trim() || TEMPLATES[draft.type].label,
-          createdAt: draft.createdAt || now,
-          updatedAt: now,
-          dirty: false,
-        };
-
-        const next = [clean, ...read(key).filter((n) => n.id !== clean.id)];
-
-        localStorage.setItem(key, JSON.stringify(next));
-        setNotes(next);
-
-        setDraft((current) =>
-          current?.id === draft.id && current === draft ? clean : current
-        );
-
-        setMessage("Autosaved");
-      } catch {
-        setError("Autosave failed.");
-      }
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [draft, key, readOnly]);
-
-  const update = (patch) => {
-    if (!readOnly) {
-      setDraft((d) => ({ ...d, ...patch, dirty: true }));
-    }
-  };
+    const next = { ...draft, ...patch, dirty: true };
+    persist(next, false, "Autosaved");
+  }
 
   const contentField = (field, value) =>
     update({ content: { ...content, [field]: value } });
@@ -449,42 +417,36 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
   const vitalField = (field, value) =>
     update({ vitals: { ...vitals, [field]: value } });
 
-  const fields = (list, obj, change, disabled = readOnly) =>
-    list.map(([k, label]) => (
+  const fields = (list, values, change, disabled = readOnly) =>
+    list.map(([key, label]) => (
       <Field
-        key={k}
+        key={key}
         label={label}
-        value={obj[k]}
+        value={values[key]}
         disabled={disabled}
-        change={(v) => change(k, v)}
+        change={(value) => change(key, value)}
       />
     ));
 
   function open(note) {
     if (editor && !window.confirm("Discard open editor changes?")) return;
 
-    setDraft(
-      note
-        ? {
-            ...note,
-            dirty: false,
-            problems: note.problems || [],
-            medications: note.medications || [],
-            content: note.content || {},
-            vitals: note.vitals || {},
-          }
-        : {
-            id: uid(),
-            title: "",
-            type: "pharmacy_soap",
-            status: "Draft",
-            content: {},
-            vitals: {},
-            problems: [],
-            medications: [],
-            dirty: false,
-          }
-    );
+    setDraft(note ? {
+      ...note,
+      content: note.content || {},
+      vitals: note.vitals || {},
+      problems: note.problems || [],
+      medications: note.medications || [],
+    } : {
+      id: uid(),
+      title: "",
+      type: "pharmacy_soap",
+      status: "Draft",
+      content: {},
+      vitals: {},
+      problems: [],
+      medications: [],
+    });
 
     setEditor(null);
     setTab(0);
@@ -497,44 +459,37 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
     const { kind, value } = editor;
     const items = draft[kind] || [];
 
-    save({
-      ...draft,
-      [kind]: items.some((i) => i.id === value.id)
-        ? items.map((i) => (i.id === value.id ? value : i))
-        : [...items, value],
-    });
+    const next = items.some((item) => item.id === value.id)
+      ? items.map((item) => item.id === value.id ? value : item)
+      : [...items, value];
 
-    setEditor(null);
+    if (persist({ ...draft, [kind]: next })) setEditor(null);
   }
 
   function removeEntry(kind, id) {
-    if (
-      window.confirm(
-        `Remove this ${kind === "problems" ? "problem" : "medication"}?`
-      )
-    ) {
-      save({
-        ...draft,
-        [kind]: draft[kind].filter((item) => item.id !== id),
-      });
-    }
+    if (!window.confirm(`Remove this ${kind.slice(0, -1)}?`)) return;
+
+    persist({
+      ...draft,
+      [kind]: draft[kind].filter((item) => item.id !== id),
+    });
   }
 
   function submit() {
     if (!instructorId || editor) return;
 
-    const instructor = INSTRUCTORS.find((i) => i.id === instructorId);
+    const instructor = INSTRUCTORS.find((item) => item.id === instructorId);
     if (!instructor) return;
 
-    if (
-      save({
-        ...draft,
-        status: "Pending Review",
-        instructorId,
-        instructorName: instructor.name,
-        submittedAt: new Date().toISOString(),
-      })
-    ) {
+    const success = persist({
+      ...draft,
+      status: "Pending Review",
+      instructorId,
+      instructorName: instructor.name,
+      submittedAt: new Date().toISOString(),
+    });
+
+    if (success) {
       setShowSubmit(false);
       setMessage("Submitted for signature");
     }
@@ -544,70 +499,57 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
     if (
       draft?.status !== "Pending Review" ||
       !window.confirm("Cancel submission and return this note to Draft?")
-    ) {
-      return;
-    }
+    ) return;
 
-    if (
-      save({
-        ...draft,
-        status: "Draft",
-        instructorId: "",
-        instructorName: "",
-        submittedAt: null,
-      })
-    ) {
-      setMessage("Submission canceled. You can edit this draft again.");
-    }
+    persist({
+      ...draft,
+      status: "Draft",
+      instructorId: "",
+      instructorName: "",
+      submittedAt: null,
+    });
   }
 
   function deleteDraft() {
     if (!saved || !window.confirm("Delete this draft?")) return;
 
-    const next = notes.filter((n) => n.id !== draft.id);
-
+    const next = notes.filter((item) => item.id !== draft.id);
     localStorage.setItem(key, JSON.stringify(next));
     setNotes(next);
     setDraft(null);
   }
 
-  function listEntries(kind, list, fieldsList) {
+  function listEntries(kind, list, fieldList) {
     const isProblem = kind === "problems";
+    const title = isProblem ? "Clinical Problems" : "Medication Reconciliation / Review";
+    const singular = isProblem ? "Problem" : "Medication";
 
     return (
       <div style={{ marginTop: "1rem" }}>
         <div className="case-section-heading">
-          <h4>
-            {isProblem ? "Clinical Problems" : "Medication Reconciliation / Review"}
-          </h4>
+          <h4>{title}</h4>
 
           {!readOnly && !editor && (
             <button
               type="button"
               className="secondary-button"
-              onClick={() =>
-                setEditor({
-                  kind,
-                  value: blank(isProblem ? [...PROBLEM, ...PLAN] : MEDICATION),
-                })
-              }
+              onClick={() => setEditor({
+                kind,
+                value: blank(isProblem ? [...PROBLEM, ...PLAN] : MEDICATION),
+              })}
             >
-              + Add {isProblem ? "Problem" : "Medication"}
+              + Add {singular}
             </button>
           )}
         </div>
 
-        {list.length === 0 && <p>No {kind} added yet.</p>}
+        {!list.length && <p>No {kind} added yet.</p>}
 
         {list.map((item, index) => (
-          <div className="panel" style={box} key={item.id}>
-            <h4>
-              {index + 1}. {item.name || "Untitled"}
-            </h4>
+          <div key={item.id} className="panel" style={box}>
+            <h4>{index + 1}. {item.name || "Untitled"}</h4>
 
-            <Details
-              items={fieldsList.map(([k, label]) => [label, item[k]])}
-            />
+            <Details items={fieldList.map(([key, label]) => [label, item[key]])} />
 
             {!readOnly && !editor && (
               <div style={row}>
@@ -633,44 +575,35 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
 
         {editor?.kind === kind && (
           <div className="panel" style={box}>
-            <h4>{isProblem ? "Clinical Problem" : "Medication"}</h4>
+            <h4>{singular}</h4>
 
             {isProblem && (
               <Search
                 label="Search ICD-10 Diagnosis"
                 codes={ICD}
                 value={editor.value.icd10}
-                onPick={(code, desc) =>
-                  setEditor((e) => ({
-                    ...e,
-                    value: {
-                      ...e.value,
-                      name: desc,
-                      icd10: code,
-                    },
+                onPick={(code, description) =>
+                  setEditor((current) => ({
+                    ...current,
+                    value: { ...current.value, name: description, icd10: code },
                   }))
                 }
               />
             )}
 
             {fields(
-              fieldsList,
+              fieldList,
               editor.value,
-              (k, v) =>
-                setEditor((e) => ({
-                  ...e,
-                  value: { ...e.value, [k]: v },
-                })),
+              (key, value) => setEditor((current) => ({
+                ...current,
+                value: { ...current.value, [key]: value },
+              })),
               false
             )}
 
             <div style={row}>
-              <button
-                type="button"
-                className="primary-button"
-                onClick={saveEntry}
-              >
-                Save {isProblem ? "Problem" : "Medication"}
+              <button type="button" className="primary-button" onClick={saveEntry}>
+                Save {singular}
               </button>
 
               <button
@@ -689,7 +622,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
 
   if (loading) {
     return (
-      <div className="dashboard-page content-page">
+      <div className={embedded ? "" : "dashboard-page content-page"}>
         Loading notes...
       </div>
     );
@@ -697,46 +630,48 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
 
   if (!patient) {
     return (
-      <div className="dashboard-page content-page">
+      <div className={embedded ? "" : "dashboard-page content-page"}>
         <p role="alert">{error || "Case not found."}</p>
 
-        <button
-          className="secondary-button"
-          onClick={() => onNavigate?.("overview")}
-        >
-          Back to My Cases
-        </button>
+        {!embedded && (
+          <button
+            className="secondary-button"
+            onClick={() => onNavigate?.("overview")}
+          >
+            Back to My Cases
+          </button>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="dashboard-page content-page">
-      <section className="page-heading">
-        <div>
-          <p className="section-label">Student Documentation</p>
-          <h1>Pharmacy Notes</h1>
-          <p>{patient.patient_name} · {patient.title}</p>
+    <div className={embedded ? "pharmacy-notes-embedded" : "dashboard-page content-page"}>
+      {!embedded && (
+        <section className="page-heading">
+          <div>
+            <p className="section-label">Student Documentation</p>
+            <h1>Pharmacy Notes</h1>
+            <p>{patient.patient_name} · {patient.title}</p>
+          </div>
 
+          <div style={row}>
+            <button
+              className="secondary-button"
+              onClick={() => setShowPatient(true)}
+            >
+              Patient Information
+            </button>
 
-        </div>
-
-        <div style={row}>
-          <button
-            className="secondary-button"
-            onClick={() => setShowPatient(true)}
-          >
-            Patient Information
-          </button>
-
-          <button
-            className="secondary-button"
-            onClick={() => onNavigate?.("caseDetail", { caseId })}
-          >
-            Back to Case
-          </button>
-        </div>
-      </section>
+            <button
+              className="secondary-button"
+              onClick={() => onNavigate?.("caseDetail", { caseId })}
+            >
+              Back to Case
+            </button>
+          </div>
+        </section>
+      )}
 
       {error && <p role="alert">{error}</p>}
 
@@ -745,10 +680,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
           <div className="case-section-heading">
             <h2>Existing Notes</h2>
 
-            <button
-              className="primary-button"
-              onClick={() => open(null)}
-            >
+            <button className="primary-button" onClick={() => open(null)}>
               + New Note
             </button>
           </div>
@@ -760,33 +692,26 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
               <table>
                 <thead>
                   <tr>
-                    {[
-                      "Title",
-                      "Note Type",
-                      "Updated",
-                      "Status",
-                      "Instructor",
-                      "Action",
-                    ].map((h) => (
-                      <th key={h}>{h}</th>
-                    ))}
+                    {["Title", "Note Type", "Updated", "Status", "Instructor", "Action"].map(
+                      (heading) => <th key={heading}>{heading}</th>
+                    )}
                   </tr>
                 </thead>
 
                 <tbody>
-                  {notes.map((n) => (
-                    <tr key={n.id}>
-                      <td>{n.title}</td>
-                      <td>{TEMPLATES[n.type]?.label || n.type}</td>
-                      <td>{date(n.updatedAt)}</td>
-                      <td>{n.status || "Draft"}</td>
-                      <td>{n.instructorName || "—"}</td>
+                  {notes.map((note) => (
+                    <tr key={note.id}>
+                      <td>{note.title}</td>
+                      <td>{TEMPLATES[note.type]?.label || note.type}</td>
+                      <td>{formatDate(note.updatedAt)}</td>
+                      <td>{note.status || "Draft"}</td>
+                      <td>{note.instructorName || "—"}</td>
                       <td>
                         <button
                           className="secondary-button"
-                          onClick={() => open(n)}
+                          onClick={() => open(note)}
                         >
-                          {locked(n) ? "View" : "Continue"}
+                          {locked(note) ? "View" : "Continue"}
                         </button>
                       </td>
                     </tr>
@@ -800,24 +725,14 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
         <section className="panel data-panel">
           <div className="case-section-heading">
             <div>
-              <h2>
-                {readOnly
-                  ? "View Note"
-                  : saved
-                    ? "Edit Note"
-                    : "New Note"}
-              </h2>
-
+              <h2>{readOnly ? "View Note" : saved ? "Edit Note" : "New Note"}</h2>
               <small role="status">{message}</small>
             </div>
 
             <button
               className="secondary-button"
               onClick={() => {
-                if (
-                  !editor ||
-                  window.confirm("Discard open editor changes?")
-                ) {
+                if (!editor || window.confirm("Discard open editor changes?")) {
                   setDraft(null);
                   setEditor(null);
                 }
@@ -833,30 +748,30 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
               type="text"
               value={draft.title}
               disabled={readOnly}
-              change={(v) => update({ title: v })}
+              change={(title) => update({ title })}
             />
 
             <Field
               label="Note Type"
               value={draft.type}
               disabled={readOnly}
-              options={Object.entries(TEMPLATES).map(([value, t]) => ({
+              options={Object.entries(TEMPLATES).map(([value, item]) => ({
                 value,
-                label: t.label,
+                label: item.label,
               }))}
               change={(type) => {
-                if (type !== draft.type) {
-                  update({
-                    type,
-                    content: {},
-                    vitals: {},
-                    problems: [],
-                    medications: [],
-                  });
+                if (type === draft.type) return;
 
-                  setTab(0);
-                  setEditor(null);
-                }
+                update({
+                  type,
+                  content: {},
+                  vitals: {},
+                  problems: [],
+                  medications: [],
+                });
+
+                setTab(0);
+                setEditor(null);
               }}
             />
           </div>
@@ -869,10 +784,8 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
 
           <p>
             <strong>Status:</strong> {draft.status || "Draft"}
-            {draft.instructorName &&
-              ` · Instructor: ${draft.instructorName}`}
-            {draft.submittedAt &&
-              ` · Submitted: ${date(draft.submittedAt)}`}
+            {draft.instructorName && ` · Instructor: ${draft.instructorName}`}
+            {draft.submittedAt && ` · Submitted: ${formatDate(draft.submittedAt)}`}
           </p>
 
           {readOnly && (
@@ -883,15 +796,14 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
           )}
 
           <nav aria-label="Note sections" style={row}>
-            {template.sections.map(([name], i) => (
+            {template.sections.map(([name], index) => (
               <button
                 key={name}
-                className={
-                  tab === i ? "primary-button" : "secondary-button"
-                }
+                type="button"
+                className={tab === index ? "primary-button" : "secondary-button"}
                 onClick={() => {
                   setEditor(null);
-                  setTab(i);
+                  setTab(index);
                 }}
               >
                 {name}
@@ -921,7 +833,6 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                 </div>
 
                 {listEntries("medications", medications, MEDICATION)}
-
                 <h4>Patient-Reported Information</h4>
               </>
             )}
@@ -936,14 +847,14 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                 </p>
 
                 <div className="detail-form-grid">
-                  {VITALS.map(([k, label]) => (
+                  {VITALS.map(([key, label]) => (
                     <Field
-                      key={k}
+                      key={key}
                       label={label}
                       type="number"
-                      value={vitals[k]}
+                      value={vitals[key]}
                       disabled={readOnly}
-                      change={(v) => vitalField(k, v)}
+                      change={(value) => vitalField(key, value)}
                     />
                   ))}
 
@@ -962,9 +873,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
               <>
                 <div className="panel" style={box}>
                   <h4>Official Chart Diagnoses (Read-only)</h4>
-                  <p>
-                    {shown(patient.diagnoses ?? patient.diagnosis)}
-                  </p>
+                  <p>{shown(patient.diagnoses ?? patient.diagnosis)}</p>
                 </div>
 
                 {listEntries("problems", problems, PROBLEM)}
@@ -979,21 +888,19 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                   <p>Add clinical problems in Assessment first.</p>
                 )}
 
-                {problems.map((p, i) => (
-                  <div key={p.id} className="panel" style={box}>
-                    <h4>
-                      Problem {i + 1}: {p.name || "Untitled"}
-                    </h4>
+                {problems.map((problem, index) => (
+                  <div key={problem.id} className="panel" style={box}>
+                    <h4>Problem {index + 1}: {problem.name || "Untitled"}</h4>
 
                     <p>
-                      ICD-10: {shown(p.icd10)} · Goal: {shown(p.goal)}
+                      ICD-10: {shown(problem.icd10)} · Goal: {shown(problem.goal)}
                     </p>
 
-                    {fields(PLAN, p, (k, v) =>
+                    {fields(PLAN, problem, (key, value) =>
                       update({
                         problems: problems.map((item) =>
-                          item.id === p.id
-                            ? { ...item, [k]: v }
+                          item.id === problem.id
+                            ? { ...item, [key]: value }
                             : item
                         ),
                       })
@@ -1021,7 +928,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                       ...CPT.map(([code]) => code),
                       "Other",
                     ]}
-                    change={(v) => contentField("cpt", v)}
+                    change={(value) => contentField("cpt", value)}
                   />
 
                   {content.cpt === "Other" && (
@@ -1030,7 +937,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                       type="text"
                       value={content.otherCpt}
                       disabled={readOnly}
-                      change={(v) => contentField("otherCpt", v)}
+                      change={(value) => contentField("otherCpt", value)}
                     />
                   )}
                 </div>
@@ -1055,9 +962,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                   type="text"
                   value={content.communicatedWith}
                   disabled={readOnly}
-                  change={(v) =>
-                    contentField("communicatedWith", v)
-                  }
+                  change={(value) => contentField("communicatedWith", value)}
                 />
 
                 <Field
@@ -1071,9 +976,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                     "Secure Message",
                     "Other",
                   ]}
-                  change={(v) =>
-                    contentField("communicationMethod", v)
-                  }
+                  change={(value) => contentField("communicationMethod", value)}
                 />
 
                 <Field
@@ -1081,9 +984,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                   type="datetime-local"
                   value={content.communicationTime}
                   disabled={readOnly}
-                  change={(v) =>
-                    contentField("communicationTime", v)
-                  }
+                  change={(value) => contentField("communicationTime", value)}
                 />
               </div>
             )}
@@ -1091,11 +992,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
 
           <div
             className="form-actions"
-            style={{
-              ...row,
-              justifyContent: "space-between",
-              marginTop: "1.5rem",
-            }}
+            style={{ ...row, justifyContent: "space-between", marginTop: "1.5rem" }}
           >
             <div style={row}>
               <button
@@ -1147,7 +1044,7 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
                     onClick={() =>
                       editor
                         ? setError("Save or cancel the open editor first.")
-                        : save(draft, true)
+                        : persist(draft, true)
                     }
                   >
                     Save Draft
@@ -1177,9 +1074,9 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
       {showPatient && (
         <div
           style={modal}
-          onMouseDown={(e) =>
-            e.target === e.currentTarget && setShowPatient(false)
-          }
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowPatient(false);
+          }}
         >
           <section
             className="panel data-panel"
@@ -1194,17 +1091,15 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
           >
             <h2>Patient Information</h2>
 
-            <Details
-              items={[
-                ["Name", patient.patient_name],
-                ["Date of Birth", patient.date_of_birth ?? patient.dob],
-                ["MRN", patient.mrn ?? patient.medical_record_number],
-                ["Age", patient.patient_age],
-                ["Sex", patient.patient_sex],
-                ...chart,
-                ["Clinical Results", patient.results],
-              ]}
-            />
+            <Details items={[
+              ["Name", patient.patient_name],
+              ["Date of Birth", patient.date_of_birth ?? patient.dob],
+              ["MRN", patient.mrn ?? patient.medical_record_number],
+              ["Age", patient.patient_age],
+              ["Sex", patient.patient_sex],
+              ...chart,
+              ["Clinical Results", patient.results],
+            ]} />
 
             <button
               className="secondary-button"
@@ -1219,9 +1114,9 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
       {showSubmit && draft && !readOnly && (
         <div
           style={modal}
-          onMouseDown={(e) =>
-            e.target === e.currentTarget && setShowSubmit(false)
-          }
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowSubmit(false);
+          }}
         >
           <section
             className="panel data-panel"
@@ -1231,17 +1126,9 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
           >
             <h2>Submit Note for Signature</h2>
 
-            <p>
-              <strong>Note:</strong> {draft.title || template.label}
-            </p>
-
-            <p>
-              <strong>Patient:</strong> {patient.patient_name}
-            </p>
-
-            <p>
-              <strong>Note Type:</strong> {template.label}
-            </p>
+            <p><strong>Note:</strong> {draft.title || template.label}</p>
+            <p><strong>Patient:</strong> {patient.patient_name}</p>
+            <p><strong>Note Type:</strong> {template.label}</p>
 
             <Field
               label="Supervising Instructor"
@@ -1249,9 +1136,9 @@ export default function PharmacyNotesPage({ onNavigate, user }) {
               change={setInstructorId}
               options={[
                 { value: "", label: "Select Instructor" },
-                ...INSTRUCTORS.map((i) => ({
-                  value: i.id,
-                  label: i.name,
+                ...INSTRUCTORS.map((item) => ({
+                  value: item.id,
+                  label: item.name,
                 })),
               ]}
             />
