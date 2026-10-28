@@ -715,6 +715,24 @@ studentRouter.post("/submissions", async (request, response) => {
     });
   }
 
+  //Derek Change audit log for note submission
+  try {
+    await writeAuditLog( admin, {
+      actor_id: user.id,
+      action: "note.submitted",
+      entity_type: "clinical_note",
+      entity_id: String(submitted.id),
+      details: {
+        assignment_id: assignmentId,
+        previous_status: note.status,
+        new_status: "Pending Review",
+      },
+    });
+    console.log("Audit log entry created for note submission.");
+  } catch (error) {
+    console.error("Error writing audit log:", error);
+  }
+
   return response.json({
     message: "Submitted for instructor review.",
     note: submitted,
