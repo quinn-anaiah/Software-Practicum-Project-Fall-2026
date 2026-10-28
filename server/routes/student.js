@@ -220,6 +220,7 @@ studentRouter.get("/notes/:assignmentId", async (request, response) => {
   }
 
   const { assignmentId } = request.params;
+  const allPharmacyNotes = request.query.scope === "pharmacy";
 
   const supabaseAdmin = getSupabaseAdmin();
 
@@ -238,15 +239,25 @@ studentRouter.get("/notes/:assignmentId", async (request, response) => {
     });
   }
 
-  const { data, error } = await supabaseAdmin
+  // Pharmacy Notes: retrieve all notes for this assignment.
+  let notesQuery = supabaseAdmin
     .schema("learning")
     .from("notes")
     .select("*")
     .eq("assignment_id", assignmentId)
-    .eq("note_type", "soap")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("updated_at", { ascending: false });
+
+  if (allPharmacyNotes) {
+    notesQuery = notesQuery.eq("discipline", "Pharmacy");
+  } else {
+    notesQuery = notesQuery
+      .eq("note_type", "soap")
+      .limit(1);
+  }
+
+  const { data, error } = allPharmacyNotes
+    ? await notesQuery
+    : await notesQuery.maybeSingle();
 
   if (error) {
     console.error("Unable to load note:", error.message);
@@ -254,6 +265,11 @@ studentRouter.get("/notes/:assignmentId", async (request, response) => {
     return response.status(500).json({
       message: "Unable to load note.",
     });
+  }
+
+  // Return the complete Pharmacy Notes list.
+  if (allPharmacyNotes) {
+    return response.json(data || []);
   }
 
   // Attach the latest instructor feedback, if the note has been reviewed.
@@ -940,5 +956,7 @@ studentRouter.get("/classes/:classroomId", async (request, response) => {
         }
       : null,
   });
-});
+}
+
+);
 export default studentRouter;

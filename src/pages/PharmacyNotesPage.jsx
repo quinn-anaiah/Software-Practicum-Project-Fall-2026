@@ -135,6 +135,40 @@ const readNotes = (key) => {
   }
 };
 
+async function fetchStudentPharmacyNotes(assignmentId) {
+  const token = sessionStorage.getItem("careflow-access-token");
+  if (!token) throw new Error("Please sign in again.");
+
+  const response = await fetch(
+    `/api/student/notes/${encodeURIComponent(assignmentId)}?scope=pharmacy`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message || "Unable to load Pharmacy notes.");
+  if (!Array.isArray(data)) throw new Error("Invalid Pharmacy notes response.");
+  return data;
+}
+
+function mapDatabaseNote(note) {
+  const stored = note.content && typeof note.content === "object" ? note.content : {};
+  return {
+    id: note.id,
+    title: note.title || stored.title || "Untitled Note",
+    type: note.note_type || stored.type || "pharmacy_soap",
+    status: note.status || "Draft",
+    content: stored.content && typeof stored.content === "object" ? stored.content : stored,
+    vitals: stored.vitals || {},
+    problems: Array.isArray(stored.problems) ? stored.problems : [],
+    medications: Array.isArray(stored.medications) ? stored.medications : [],
+    instructorId: stored.instructorId || "",
+    instructorName: stored.instructorName || "",
+    createdAt: note.created_at,
+    updatedAt: note.updated_at,
+    submittedAt: note.submitted_at || stored.submittedAt || null,
+    fromDatabase: true,
+  };
+}
+
 const shown = (value) => {
   if (value == null || value === "") return "Not provided";
   if (Array.isArray(value)) return value.map(shown).join(", ") || "Not provided";
@@ -303,6 +337,7 @@ export default function PharmacyNotesPage({
   const [showSubmit, setShowSubmit] = useState(false);
   const [instructorId, setInstructorId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [notesLoading, setNotesLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -311,7 +346,7 @@ export default function PharmacyNotesPage({
     : null;
 
   const saved = notes.find((note) => note.id === draft?.id);
-  const readOnly = locked(draft);
+  const readOnly = locked(draft) || Boolean(draft?.fromDatabase);
   const template = TEMPLATES[draft?.type] || TEMPLATES.pharmacy_soap;
   const [sectionName, sectionFields] = template.sections[tab] || template.sections[0];
 
@@ -367,15 +402,41 @@ export default function PharmacyNotesPage({
   }, [caseId]);
 
   useEffect(() => {
-    if (!key) return;
-    setNotes(readNotes(key));
-    setDraft(null);
-    setEditor(null);
-    setShowSubmit(false);
-  }, [key]);
+    if (!patient?.assignment_id) {
+      setNotes([]);
+      setDraft(null);
+      return;
+    }
+
+    let active = true;
+    async function loadNotes() {
+      setNotesLoading(true);
+      setError("");
+      setDraft(null);
+      setEditor(null);
+      setShowSubmit(false);
+      try {
+        const records = await fetchStudentPharmacyNotes(patient.assignment_id);
+        if (active) setNotes([...records.map(mapDatabaseNote), ...readNotes(key)]);
+      } catch (err) {
+        if (active) {
+          setError(err.message || "Unable to load Pharmacy notes.");
+          setNotes(readNotes(key));
+        }
+      } finally {
+        if (active) setNotesLoading(false);
+      }
+    }
+    loadNotes();
+    return () => { active = false; };
+  }, [patient?.assignment_id, key]);
 
   function persist(note, close = false, statusMessage = "Saved") {
     if (!key) return false;
+    if (note?.fromDatabase) {
+      setError("Database notes are read-only.");
+      return false;
+    }
 
     try {
       const now = new Date().toISOString();
@@ -393,7 +454,7 @@ export default function PharmacyNotesPage({
       ];
 
       localStorage.setItem(key, JSON.stringify(next));
-      setNotes(next);
+      setNotes((current) => [...current.filter((item) => item.fromDatabase), ...next]);
       setDraft(close ? null : clean);
       setMessage(statusMessage);
       setError("");
@@ -476,7 +537,7 @@ export default function PharmacyNotesPage({
   }
 
   function submit() {
-    if (!instructorId || editor) return;
+    if (!instructorId || editor || readOnly) return;
 
     const instructor = INSTRUCTORS.find((item) => item.id === instructorId);
     if (!instructor) return;
@@ -498,6 +559,7 @@ export default function PharmacyNotesPage({
   function cancelSubmission() {
     if (
       draft?.status !== "Pending Review" ||
+      draft?.fromDatabase ||
       !window.confirm("Cancel submission and return this note to Draft?")
     ) return;
 
@@ -511,11 +573,11 @@ export default function PharmacyNotesPage({
   }
 
   function deleteDraft() {
-    if (!saved || !window.confirm("Delete this draft?")) return;
+    if (!saved || saved.fromDatabase || !window.confirm("Delete this draft?")) return;
 
-    const next = notes.filter((item) => item.id !== draft.id);
+    const next = readNotes(key).filter((item) => item.id !== draft.id);
     localStorage.setItem(key, JSON.stringify(next));
-    setNotes(next);
+    setNotes((current) => current.filter((item) => item.id !== draft.id || item.fromDatabase));
     setDraft(null);
   }
 
@@ -685,7 +747,9 @@ export default function PharmacyNotesPage({
             </button>
           </div>
 
-          {!notes.length ? (
+          {notesLoading ? (
+            <p>Loading Pharmacy notes...</p>
+          ) : !notes.length ? (
             <p>No notes created yet.</p>
           ) : (
             <div className="table-wrap">
@@ -700,7 +764,7 @@ export default function PharmacyNotesPage({
 
                 <tbody>
                   {notes.map((note) => (
-                    <tr key={note.id}>
+                    <tr key={`${note.fromDatabase ? "db" : "local"}-${note.id}`}>
                       <td>{note.title}</td>
                       <td>{TEMPLATES[note.type]?.label || note.type}</td>
                       <td>{formatDate(note.updatedAt)}</td>
@@ -711,7 +775,7 @@ export default function PharmacyNotesPage({
                           className="secondary-button"
                           onClick={() => open(note)}
                         >
-                          {locked(note) ? "View" : "Continue"}
+                          {locked(note) || note.fromDatabase ? "View" : "Continue"}
                         </button>
                       </td>
                     </tr>
@@ -790,8 +854,9 @@ export default function PharmacyNotesPage({
 
           {readOnly && (
             <p>
-              This note is read-only while its status is{" "}
-              <strong>{draft.status}</strong>.
+              {draft.fromDatabase
+                ? "This database note is read-only."
+                : <>This note is read-only while its status is <strong>{draft.status}</strong>.</>}
             </p>
           )}
 
@@ -1019,7 +1084,7 @@ export default function PharmacyNotesPage({
             </div>
 
             <div style={row}>
-              {draft.status === "Pending Review" && (
+              {draft.status === "Pending Review" && !draft.fromDatabase && (
                 <button
                   className="secondary-button"
                   onClick={cancelSubmission}
