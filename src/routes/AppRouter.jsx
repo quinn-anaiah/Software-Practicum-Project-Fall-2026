@@ -21,9 +21,8 @@ import PasswordSetupPage from "../pages/PasswordSetupPage";
 import SettingsPage from "../pages/SettingsPage";
 import StudentOverviewPage from "../pages/StudentOverviewPage";
 import StudentCaseDetailsPage from "../pages/StudentCaseDetailsPage";
-import StudentNoteFormPage from "../pages/StudentNoteFormPage";
+import PharmacyNotesPage from "../pages/PharmacyNotesPage";
 import StudentOrderEntryPage from "../pages/StudentOrderEntryPage";
-import StudentSubmissionPage from "../pages/StudentSubmissionPage";
 import StudentClassesPage from "../pages/StudentClassesPage";
 import StudentClassDetailPage from "../pages/StudentClassDetailPage";
 import PatientOverviewPage from "../pages/PatientOverviewPage";
@@ -118,17 +117,13 @@ const routesByRole = {
         path: "/student/case",
         Component: StudentCaseDetailsPage,
       },
-      noteForm: {
-        path: "/student/note",
-        Component: StudentNoteFormPage,
+      pharmacyNotes: {
+        path: "/student/pharmacy-notes",
+        Component: PharmacyNotesPage,
       },
       orderEntry: {
         path: "/student/orders",
         Component: StudentOrderEntryPage,
-      },
-      submission: {
-        path: "/student/submission",
-        Component: StudentSubmissionPage,
       },
       settings: { path: "/student/settings", Component: SettingsPage },
     },
