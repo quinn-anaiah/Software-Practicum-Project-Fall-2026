@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { fetchStudentCases } from "../lib/api";
+import {
+  fetchStudentCases,
+  fetchStudentPharmacyNotes,
+  saveStudentNote,
+  updateStudentNote,
+  submitStudentPharmacyNote,
+  deleteStudentPharmacyNote,
+} from "../lib/api";
 
 const INSTRUCTORS = [
   { id: "demo-rivera", name: "Dr. Rivera" },
@@ -126,29 +133,6 @@ const blank = (fields) => ({
   ...Object.fromEntries(fields.map(([key]) => [key, ""])),
 });
 
-const readNotes = (key) => {
-  try {
-    const notes = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(notes) ? notes : [];
-  } catch {
-    return [];
-  }
-};
-
-async function fetchStudentPharmacyNotes(assignmentId) {
-  const token = sessionStorage.getItem("careflow-access-token");
-  if (!token) throw new Error("Please sign in again.");
-
-  const response = await fetch(
-    `/api/student/notes/${encodeURIComponent(assignmentId)}?scope=pharmacy`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || "Unable to load Pharmacy notes.");
-  if (!Array.isArray(data)) throw new Error("Invalid Pharmacy notes response.");
-  return data;
-}
-
 function mapDatabaseNote(note) {
   const stored = note.content && typeof note.content === "object" ? note.content : {};
   return {
@@ -165,6 +149,7 @@ function mapDatabaseNote(note) {
     createdAt: note.created_at,
     updatedAt: note.updated_at,
     submittedAt: note.submitted_at || stored.submittedAt || null,
+    feedback: note.feedback || null,
     fromDatabase: true,
   };
 }
@@ -334,19 +319,16 @@ export default function PharmacyNotesPage({
   const [tab, setTab] = useState(0);
   const [editor, setEditor] = useState(null);
   const [showPatient, setShowPatient] = useState(false);
-  const [showSubmit, setShowSubmit] = useState(false);
-  const [instructorId, setInstructorId] = useState("");
   const [loading, setLoading] = useState(true);
   const [notesLoading, setNotesLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const key = patient
-    ? `pharmacy-notes:${user?.id || "unknown"}:${patient.assignment_id ?? patient.id}`
-    : null;
-
   const saved = notes.find((note) => note.id === draft?.id);
-  const readOnly = locked(draft) || Boolean(draft?.fromDatabase);
+  const readOnly = locked(draft);
   const template = TEMPLATES[draft?.type] || TEMPLATES.pharmacy_soap;
   const [sectionName, sectionFields] = template.sections[tab] || template.sections[0];
 
@@ -414,14 +396,13 @@ export default function PharmacyNotesPage({
       setError("");
       setDraft(null);
       setEditor(null);
-      setShowSubmit(false);
       try {
         const records = await fetchStudentPharmacyNotes(patient.assignment_id);
-        if (active) setNotes([...records.map(mapDatabaseNote), ...readNotes(key)]);
+        if (active) setNotes(records.map(mapDatabaseNote));
       } catch (err) {
         if (active) {
           setError(err.message || "Unable to load Pharmacy notes.");
-          setNotes(readNotes(key));
+          setNotes([]);
         }
       } finally {
         if (active) setNotesLoading(false);
@@ -429,47 +410,160 @@ export default function PharmacyNotesPage({
     }
     loadNotes();
     return () => { active = false; };
-  }, [patient?.assignment_id, key]);
+  }, [patient?.assignment_id]);
 
-  function persist(note, close = false, statusMessage = "Saved") {
-    if (!key) return false;
-    if (note?.fromDatabase) {
-      setError("Database notes are read-only.");
+  async function persist(note, close = false) {
+    if (!patient?.assignment_id || !note || saving || locked(note)) return false;
+    if (editor) {
+      setError("Save or cancel the open editor first.");
       return false;
     }
 
+    setSaving(true);
+    setError("");
     try {
-      const now = new Date().toISOString();
-      const clean = {
-        ...note,
-        title: note.title?.trim() || TEMPLATES[note.type]?.label || "Untitled Note",
-        createdAt: note.createdAt || now,
-        updatedAt: now,
-        dirty: false,
+      const title = note.title?.trim() || TEMPLATES[note.type]?.label || "Untitled Note";
+      const noteContent = {
+        content: note.content || {},
+        vitals: note.vitals || {},
+        problems: note.problems || [],
+        medications: note.medications || [],
       };
-
-      const next = [
-        clean,
-        ...readNotes(key).filter((item) => item.id !== clean.id),
-      ];
-
-      localStorage.setItem(key, JSON.stringify(next));
-      setNotes((current) => [...current.filter((item) => item.fromDatabase), ...next]);
-      setDraft(close ? null : clean);
-      setMessage(statusMessage);
-      setError("");
+      const record = note.fromDatabase
+        ? await updateStudentNote(note.id, { title, content: noteContent })
+        : await saveStudentNote({
+            assignmentId: patient.assignment_id,
+            discipline: "Pharmacy",
+            noteType: note.type,
+            title,
+            content: noteContent,
+          });
+      const updated = mapDatabaseNote(record);
+      setNotes((current) => [updated, ...current.filter((item) => String(item.id) !== String(updated.id))]);
+      setDraft(close ? null : updated);
+      setMessage("Draft saved to database.");
       return true;
-    } catch {
-      setError("Unable to save note.");
+    } catch (err) {
+      setError(err.message || "Unable to save note.");
       return false;
+    } finally {
+      setSaving(false);
     }
   }
 
-  function update(patch) {
-    if (readOnly || !draft) return;
+  async function submitNote() {
+  if (!draft?.fromDatabase || !draft?.id) {
+    setError("Save this note before submitting.");
+    return;
+  }
 
-    const next = { ...draft, ...patch, dirty: true };
-    persist(next, false, "Autosaved");
+  if (draft.dirty) {
+    setError("Save your latest changes before submitting.");
+    return;
+  }
+
+  if (editor) {
+    setError("Save or cancel the open editor first.");
+    return;
+  }
+
+  if (!["Draft", "Returned"].includes(draft.status)) {
+    setError("This note cannot be submitted.");
+    return;
+  }
+
+  if (saving || submitting) return;
+
+  const confirmed = window.confirm(
+    "Submit this note for instructor review? You will not be able to edit it until your instructor returns it."
+  );
+
+  if (!confirmed) return;
+
+  setSubmitting(true);
+  setError("");
+  setMessage("");
+
+  try {
+    const result = await submitStudentPharmacyNote(draft.id);
+
+    const updated = mapDatabaseNote(result.note);
+
+    setNotes((current) =>
+      current.map((note) =>
+        String(note.id) === String(updated.id) ? updated : note
+      )
+    );
+
+    setDraft(updated);
+    setMessage("Note submitted for instructor review.");
+  } catch (err) {
+    setError(err.message || "Unable to submit note.");
+  } finally {
+    setSubmitting(false);
+  }
+}
+
+async function deleteDraft(note) {
+  if (!note || saving || deleting) return;
+
+  // Only drafts can be deleted.
+  if (note.status !== "Draft") {
+    setError("Only draft notes can be deleted.");
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Permanently delete "${note.title || "Untitled Note"}"? This cannot be undone.`
+  );
+
+  if (!confirmed) return;
+
+  // New notes that have never been saved only exist in React state.
+  if (!note.fromDatabase) {
+    setNotes((current) =>
+      current.filter((item) => String(item.id) !== String(note.id))
+    );
+
+    if (String(draft?.id) === String(note.id)) {
+      setDraft(null);
+      setEditor(null);
+    }
+
+    setMessage("Unsaved draft discarded.");
+    return;
+  }
+
+  setDeleting(true);
+  setError("");
+  setMessage("");
+
+  try {
+    await deleteStudentPharmacyNote(note.id);
+
+    // Remove the deleted note from the list.
+    setNotes((current) =>
+      current.filter((item) => String(item.id) !== String(note.id))
+    );
+
+    // Close the editor if this was the open note.
+    if (String(draft?.id) === String(note.id)) {
+      setDraft(null);
+      setEditor(null);
+    }
+
+    setMessage("Draft deleted successfully.");
+  } catch (err) {
+    setError(err.message || "Unable to delete draft.");
+  } finally {
+    setDeleting(false);
+  }
+}
+
+  function update(patch) {
+    if (readOnly || !draft || saving) return;
+    setDraft((current) => current ? { ...current, ...patch, dirty: true } : current);
+    setMessage("Unsaved changes");
   }
 
   const contentField = (field, value) =>
@@ -500,6 +594,7 @@ export default function PharmacyNotesPage({
       medications: note.medications || [],
     } : {
       id: uid(),
+      fromDatabase: false,
       title: "",
       type: "pharmacy_soap",
       status: "Draft",
@@ -524,61 +619,14 @@ export default function PharmacyNotesPage({
       ? items.map((item) => item.id === value.id ? value : item)
       : [...items, value];
 
-    if (persist({ ...draft, [kind]: next })) setEditor(null);
+    update({ [kind]: next });
+    setEditor(null);
   }
 
   function removeEntry(kind, id) {
     if (!window.confirm(`Remove this ${kind.slice(0, -1)}?`)) return;
 
-    persist({
-      ...draft,
-      [kind]: draft[kind].filter((item) => item.id !== id),
-    });
-  }
-
-  function submit() {
-    if (!instructorId || editor || readOnly) return;
-
-    const instructor = INSTRUCTORS.find((item) => item.id === instructorId);
-    if (!instructor) return;
-
-    const success = persist({
-      ...draft,
-      status: "Pending Review",
-      instructorId,
-      instructorName: instructor.name,
-      submittedAt: new Date().toISOString(),
-    });
-
-    if (success) {
-      setShowSubmit(false);
-      setMessage("Submitted for signature");
-    }
-  }
-
-  function cancelSubmission() {
-    if (
-      draft?.status !== "Pending Review" ||
-      draft?.fromDatabase ||
-      !window.confirm("Cancel submission and return this note to Draft?")
-    ) return;
-
-    persist({
-      ...draft,
-      status: "Draft",
-      instructorId: "",
-      instructorName: "",
-      submittedAt: null,
-    });
-  }
-
-  function deleteDraft() {
-    if (!saved || saved.fromDatabase || !window.confirm("Delete this draft?")) return;
-
-    const next = readNotes(key).filter((item) => item.id !== draft.id);
-    localStorage.setItem(key, JSON.stringify(next));
-    setNotes((current) => current.filter((item) => item.id !== draft.id || item.fromDatabase));
-    setDraft(null);
+    update({ [kind]: draft[kind].filter((item) => item.id !== id) });
   }
 
   function listEntries(kind, list, fieldList) {
@@ -775,8 +823,24 @@ export default function PharmacyNotesPage({
                           className="secondary-button"
                           onClick={() => open(note)}
                         >
-                          {locked(note) || note.fromDatabase ? "View" : "Continue"}
+                          {locked(note) ? "View" : "Continue"}
                         </button>
+
+                        {note.status === "Draft" && (
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            style={{
+                              marginLeft: "8px",
+                              color: "#dc2626",
+                              borderColor: "#dc2626",
+                            }}
+                            disabled={saving || deleting}
+                            onClick={() => deleteDraft(note)}
+                          >
+                            {deleting ? "Deleting..." : "Delete"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -796,7 +860,7 @@ export default function PharmacyNotesPage({
             <button
               className="secondary-button"
               onClick={() => {
-                if (!editor || window.confirm("Discard open editor changes?")) {
+                if ((!draft.dirty || window.confirm("Discard unsaved changes?")) && (!editor || window.confirm("Discard open editor changes?"))) {
                   setDraft(null);
                   setEditor(null);
                 }
@@ -852,12 +916,29 @@ export default function PharmacyNotesPage({
             {draft.submittedAt && ` · Submitted: ${formatDate(draft.submittedAt)}`}
           </p>
 
+          {draft.feedback && (
+            <div className="panel" style={{ padding: "1rem", marginBottom: "1rem" }}>
+              <h3>Instructor Feedback</h3>
+
+              <p>
+                <strong>Decision:</strong>{" "}
+                {draft.feedback.decision || "Not provided"}
+              </p>
+
+              <p>
+                <strong>Comments:</strong>{" "}
+                {draft.feedback.comments || "No comments provided."}
+              </p>
+
+              <p>
+                <strong>Reviewed:</strong>{" "}
+                {formatDate(draft.feedback.created_at)}
+              </p>
+            </div>
+          )}
+
           {readOnly && (
-            <p>
-              {draft.fromDatabase
-                ? "This database note is read-only."
-                : <>This note is read-only while its status is <strong>{draft.status}</strong>.</>}
-            </p>
+            <p>This note is read-only while its status is <strong>{draft.status}</strong>.</p>
           )}
 
           <nav aria-label="Note sections" style={row}>
@@ -1084,53 +1165,51 @@ export default function PharmacyNotesPage({
             </div>
 
             <div style={row}>
-              {draft.status === "Pending Review" && !draft.fromDatabase && (
+
+            {!readOnly && (
+              <>
+              {draft?.status === "Draft" && (
                 <button
+                  type="button"
                   className="secondary-button"
-                  onClick={cancelSubmission}
+                  style={{
+                    color: "#dc2626",
+                    borderColor: "#dc2626",
+                  }}
+                  disabled={saving || deleting}
+                  onClick={() => deleteDraft(draft)}
                 >
-                  Cancel Submission
+                  {deleting ? "Deleting..." : "Delete Draft"}
                 </button>
               )}
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={saving || submitting || notesLoading}
+                  onClick={() => persist(draft, false)}
+                >
+                  {saving ? "Saving..." : "Save Draft"}
+                </button>
 
-              {!readOnly && (
-                <>
-                  {saved && (
+                {draft.fromDatabase &&
+                  ["Draft", "Returned"].includes(draft.status) && (
                     <button
-                      className="secondary-button"
-                      onClick={deleteDraft}
+                      type="button"
+                      className="primary-button"
+                      disabled={
+                        saving ||
+                        submitting ||
+                        notesLoading ||
+                        draft.dirty ||
+                        Boolean(editor)
+                      }
+                      onClick={submitNote}
                     >
-                      Delete Draft
+                      {submitting ? "Submitting..." : "Submit for Review"}
                     </button>
                   )}
-
-                  <button
-                    className="secondary-button"
-                    onClick={() =>
-                      editor
-                        ? setError("Save or cancel the open editor first.")
-                        : persist(draft, true)
-                    }
-                  >
-                    Save Draft
-                  </button>
-
-                  <button
-                    className="primary-button"
-                    onClick={() => {
-                      if (editor) {
-                        setError("Save or cancel the open editor first.");
-                        return;
-                      }
-
-                      setInstructorId(draft.instructorId || "");
-                      setShowSubmit(true);
-                    }}
-                  >
-                    Submit for Signature
-                  </button>
-                </>
-              )}
+              </>
+            )}
             </div>
           </div>
         </section>
@@ -1176,62 +1255,6 @@ export default function PharmacyNotesPage({
         </div>
       )}
 
-      {showSubmit && draft && !readOnly && (
-        <div
-          style={modal}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowSubmit(false);
-          }}
-        >
-          <section
-            className="panel data-panel"
-            role="dialog"
-            aria-modal="true"
-            style={{ maxWidth: 520, width: "100%" }}
-          >
-            <h2>Submit Note for Signature</h2>
-
-            <p><strong>Note:</strong> {draft.title || template.label}</p>
-            <p><strong>Patient:</strong> {patient.patient_name}</p>
-            <p><strong>Note Type:</strong> {template.label}</p>
-
-            <Field
-              label="Supervising Instructor"
-              value={instructorId}
-              change={setInstructorId}
-              options={[
-                { value: "", label: "Select Instructor" },
-                ...INSTRUCTORS.map((item) => ({
-                  value: item.id,
-                  label: item.name,
-                })),
-              ]}
-            />
-
-            <p>
-              After submission, this note becomes read-only.
-              You can cancel while it is Pending Review.
-            </p>
-
-            <div style={row}>
-              <button
-                className="secondary-button"
-                onClick={() => setShowSubmit(false)}
-              >
-                Cancel
-              </button>
-
-              <button
-                className="primary-button"
-                disabled={!instructorId}
-                onClick={submit}
-              >
-                Submit Note
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   );
 }

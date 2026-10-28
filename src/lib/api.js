@@ -289,6 +289,106 @@ export async function saveStudentNote(note) {
   return payload;
 }
 
+export async function updateStudentNote(noteId, updates) {
+  const accessToken = sessionStorage.getItem(
+    "careflow-access-token"
+  );
+
+  if (!accessToken) {
+    throw new Error(
+      "No active session. Please sign in again."
+    );
+  }
+
+  if (!noteId) {
+    throw new Error("Note ID is required.");
+  }
+
+  const response = await fetch(
+    `/api/student/notes/${encodeURIComponent(noteId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updates),
+    }
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to update note."
+    );
+  }
+
+  return payload;
+}
+
+export async function submitStudentPharmacyNote(noteId) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+
+  if (!accessToken) {
+    throw new Error("No active session. Please sign in again.");
+  }
+
+  if (!noteId) {
+    throw new Error("Note ID is required.");
+  }
+
+  const response = await fetch(
+    `/api/student/notes/${encodeURIComponent(noteId)}/submit`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message || "Unable to submit Pharmacy note."
+    );
+  }
+
+  return payload;
+}
+
+export async function deleteStudentPharmacyNote(noteId) {
+  const accessToken = sessionStorage.getItem("careflow-access-token");
+
+  if (!accessToken) {
+    throw new Error("Please sign in again.");
+  }
+
+  if (!noteId) {
+    throw new Error("Note ID is required.");
+  }
+
+  const response = await fetch(
+    `/api/student/notes/${encodeURIComponent(noteId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.message || "Unable to delete draft.");
+  }
+
+  return result;
+}
+
 export async function fetchStudentNote(assignmentId) {
   const accessToken = sessionStorage.getItem(
     "careflow-access-token",

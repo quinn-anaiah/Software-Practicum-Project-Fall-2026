@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import PharmacyNotesPage from "./PharmacyNotesPage";
-import { fetchStudentCases, updateStudentCaseStatus } from "../lib/api";
+import {
+  fetchStudentCases,
+  fetchStudentPharmacyNotes,
+  updateStudentCaseStatus,
+} from "../lib/api";
 
 const tabs = ["Overview", "Medications", "Labs", "Notes", "Appointments", "Referrals"];
 
@@ -176,29 +180,51 @@ export default function StudentCaseDetailPage({
       return;
     }
 
-    const key = `pharmacy-notes:${user?.id || "unknown"}:${
-      patient.assignment_id ?? patient.id
-    }`;
+    let active = true;
 
-    const updateCount = () => {
-      try {
-        const notes = JSON.parse(localStorage.getItem(key) || "[]");
-        setNoteCount(Array.isArray(notes) ? notes.length : 0);
-      } catch {
-        setNoteCount(0);
+    const assignmentId = patient.assignment_id;
+
+    async function updateCount() {
+      if (!assignmentId) {
+        if (active) setNoteCount(0);
+        return;
       }
-    };
+
+      try {
+        const result = await fetchStudentPharmacyNotes(assignmentId);
+
+        const notes = Array.isArray(result)
+          ? result
+          : result?.notes || [];
+
+        if (active) {
+          setNoteCount(notes.length);
+        }
+      } catch (error) {
+        console.error("Unable to load note count:", error);
+
+        if (active) {
+          setNoteCount(0);
+        }
+      }
+    }
 
     updateCount();
 
-    window.addEventListener("focus", updateCount);
-    window.addEventListener("notes-updated", updateCount);
+    const handleNotesUpdated = () => {
+      updateCount();
+    };
+
+    window.addEventListener("focus", handleNotesUpdated);
+    window.addEventListener("notes-updated", handleNotesUpdated);
 
     return () => {
-      window.removeEventListener("focus", updateCount);
-      window.removeEventListener("notes-updated", updateCount);
+      active = false;
+
+      window.removeEventListener("focus", handleNotesUpdated);
+      window.removeEventListener("notes-updated", handleNotesUpdated);
     };
-  }, [patient, user?.id, tab]);
+  }, [patient?.assignment_id, tab]);
 
   async function advanceStatus() {
     const current =
