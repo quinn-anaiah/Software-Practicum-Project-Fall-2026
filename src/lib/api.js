@@ -132,6 +132,11 @@ export function fetchAdminAuditLog() {
   return adminRequest("/audit-log");
 }
 
+//Global Audit Log
+export function fetchGlobalAuditLog() {
+  return adminRequest('/global-audit-log?page=${page}');
+}
+
 export function fetchAdminAcademics() {
   return adminRequest("/academics");
 }

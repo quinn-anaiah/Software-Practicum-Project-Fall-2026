@@ -824,6 +824,63 @@ adminRouter.get("/audit-log", async (request, response) => {
   }
 });
 
+//Dereks Global Audit Log
+//Page for Admins to view all activity in the system. This is a global audit log that shows all activity in the system, not just admin activity. This is useful for tracking down issues and seeing what users are doing in the system.
+adminRouter.get("/global-audit-log", async (request, response) => {
+  try {
+    // Step 1: Make sure the user is an Admin.
+    const context = await requireAdmin(request, response);
+
+    if (!context) {
+      return;
+    }
+
+    const database = context.supabaseAdmin;
+
+    // Step 2: Get the global audit log from the database.
+    // We will only show 20 events per page
+    const pageSize = 20;
+    const requestedPage = Number(request.query.page);
+    const page = Number.isSafeInteger(requestedPage)
+      ? Math.max(1, Math.min(requestedPage, 1000))
+      : 1;
+
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize - 1;
+
+    // Get audit log events from the database, ordered by newest first.
+    const { data, error, count } = await database
+      .from("admin_audit_log")
+      .select("id, actor_id, target_user_id, action, entity_type, entity_id, details, created_at", {
+        count: "exact",
+      })
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(start, end);
+
+    if (error) {
+      throw error;
+    }
+
+    // Send the records to the frontend, along with pagination information.
+    return response.json({
+      logs: data || [],
+      total: count || 0,
+      page: page,
+      pageSize: pageSize,
+    });
+  } catch (error) {
+    console.error("Unable to load global audit log:", error);
+
+    return response.status(500).json({
+      message: "Unable to load the global audit log.",
+    });
+  }
+});
+
+
+
+
 
 // ADMIN CLASSROOM AND STUDENT ACTIVITY
 // This route lets administrators VIEW activity.
