@@ -862,9 +862,55 @@ adminRouter.get("/global-audit-log", async (request, response) => {
       throw error;
     }
 
+    //Display the actual user names in the audit log
+    const auditLogs = data || [];
+
+    const actorIds = [
+      ...new Set(auditLogs.map((entry) => entry.actor_id))
+    ];
+
+    //Find the corresponding profiles
+    let profiles = [];
+
+    if (actorIds.length > 0) {
+      const { data: userProfiles, error: profileError } =
+        await database
+          .from("profiles")
+          .select("id, first_name, last_name, roles(name)")
+          .in("id", actorIds);
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    profiles = userProfiles || [];
+    }
+
+    //Match the each profile to its User ID
+    const profileMap = new Map();
+
+    for (const profile of profiles) {
+      profileMap.set(profile.id, profile);
+    }
+
+    //Add the user name and role to the corresponding audit event
+    const logsWithNames = auditLogs.map((entry) => {
+      const profile = profileMap.get(entry.actor_id);
+
+      const fullName = profile
+        ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim()
+        : "";
+
+      return {
+        ...entry,
+        actor_name: fullName || "Unknown user",
+        actor_role: getRelationName(profile?.roles) || "Role unavailable"
+      };
+    });
+
     // Send the records to the frontend, along with pagination information.
     return response.json({
-      logs: data || [],
+      logs: logsWithNames,
       total: count || 0,
       page: page,
       pageSize: pageSize,

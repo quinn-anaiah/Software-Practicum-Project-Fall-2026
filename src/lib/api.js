@@ -133,8 +133,8 @@ export function fetchAdminAuditLog() {
 }
 
 //Global Audit Log
-export function fetchGlobalAuditLog() {
-  return adminRequest('/global-audit-log?page=${page}');
+export function fetchGlobalAuditLog(page = 1) {
+  return adminRequest(`/global-audit-log?page=${page}`);
 }
 
 export function fetchAdminAcademics() {
