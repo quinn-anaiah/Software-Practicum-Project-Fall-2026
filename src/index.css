@@ -3964,3 +3964,39 @@ td small {
   gap: 12px;
   margin-top: 16px;
 }
+.assign-modal__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+
+.assign-modal__header h2 {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.demo-assignments {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demo-assignments li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: #f4f7fd;
+  border-radius: 12px;
+}
+
+.demo-assignments span {
+  color: #5b6680;
+  font-size: 0.9rem;
+}
+
+.rubric-editor { display: grid; gap: 8px; }
+.rubric-editor p { margin: 0; font-weight: 600; font-size: 0.9rem; }
+.rubric-editor__row { display: grid; grid-template-columns: 1fr 90px 36px; gap: 8px; align-items: center; }

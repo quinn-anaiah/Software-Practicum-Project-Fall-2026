@@ -759,7 +759,190 @@ instructorRouter.patch(
         message: "Unable to review this submission.",
       });
     }
+  });
+
+// ---- Create a case and assign it to students in a classroom ----
+const ASSIGNABLE_NOTE_TYPES = ["soap"];
+
+function cleanText(value, maxLength) {
+  return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function cleanList(value, maxItems = 20, maxLength = 300) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanText(item, maxLength))
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function cleanCriteria(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => ({
+      description: cleanText(item?.description, 300),
+      points: Number(item?.points),
+    }))
+    .filter((item) => item.description)
+    .slice(0, 30);
+}
+
+instructorRouter.post("/classrooms/:classroomId/assignments", async (request, response) => {
+  try {
+    const context = await requireInstructor(request, response);
+    if (!context) return;
+    const { supabaseAdmin: admin, profile } = context;
+
+    // The instructor must teach this class (the class id comes from the URL).
+    const access = await verifyClassroomAccess(admin, profile, request.params.classroomId);
+    if (!access) {
+      return response.status(404).json({ message: "Classroom not found." });
+    }
+
+    const body = request.body || {};
+    const input = body.patientCase || {};
+    const expectations = body.expectations || {};
+
+    const title = cleanText(input.title, 120);
+    const patientName = cleanText(input.patientName, 120);
+    const noteType = String(body.noteType || "soap");
+    const studentIds = [...new Set(Array.isArray(body.studentIds) ? body.studentIds : [])];
+
+    if (!title || !patientName) {
+      return response.status(400).json({ message: "Enter a case title and a patient name." });
+    }
+    if (!ASSIGNABLE_NOTE_TYPES.includes(noteType)) {
+      return response.status(400).json({ message: "That note type is not available yet." });
+    }
+    if (!studentIds.length) {
+      return response.status(400).json({ message: "Select at least one student." });
+    }
+
+    let patientAge = null;
+    if (input.patientAge !== "" && input.patientAge != null) {
+      patientAge = Number(input.patientAge);
+      if (!Number.isInteger(patientAge) || patientAge < 0 || patientAge > 120) {
+        return response.status(400).json({ message: "Age must be a whole number from 0 to 120." });
+      }
+    }
+
+    const criteria = cleanCriteria(expectations.rubricCriteria);
+    if (criteria.some((item) => !Number.isFinite(item.points) || item.points < 0 || item.points > 1000)) {
+      return response.status(400).json({ message: "Each rubric criterion needs points from 0 to 1000." });
+    }
+
+    let dueAt = null;
+    if (body.dueAt) {
+      const parsed = new Date(body.dueAt);
+      if (Number.isNaN(parsed.getTime())) {
+        return response.status(400).json({ message: "Enter a valid due date." });
+      }
+      dueAt = parsed.toISOString();
+    }
+
+    // Every selected student must be actively enrolled in THIS class.
+    const { data: enrollments, error: enrollmentError } = await admin
+      .schema("school")
+      .from("classroom_enrollments")
+      .select("student_id")
+      .eq("classroom_id", access.classroom.id)
+      .eq("status", "active")
+      .in("student_id", studentIds);
+    if (enrollmentError) throw enrollmentError;
+
+    const enrolledIds = new Set((enrollments || []).map((row) => row.student_id));
+    if (!studentIds.every((id) => enrolledIds.has(id))) {
+      return response.status(400).json({
+        message: "Some selected students are not enrolled in this classroom.",
+      });
+    }
+
+    const learning = admin.schema("learning");
+
+    // 1. The case
+    const { data: createdCase, error: caseError } = await learning
+      .from("cases")
+      .insert({
+        title,
+        patient_name: patientName,
+        patient_age: patientAge,
+        patient_sex: cleanText(input.patientSex, 40) || null,
+        chief_complaint: cleanText(input.chiefComplaint, 500) || null,
+        history: cleanText(input.history, 2000) || null,
+        medications: cleanList(input.medications),
+        allergies: cleanList(input.allergies),
+        results: cleanText(input.results, 1000) || null,
+        starting_encounter_status: "Scheduled",
+        created_by: profile.id,
+      })
+      .select("id")
+      .single();
+    if (caseError) throw caseError;
+
+    // Deleting the case also removes its expectations and rubric (on delete cascade).
+    async function undoCase() {
+      await learning.from("cases").delete().eq("id", createdCase.id);
+    }
+
+    try {
+      // 2. Instructor-only answer key
+      const expectedDiagnoses = cleanList(expectations.expectedDiagnoses);
+      const instructorNotes = cleanText(expectations.instructorNotes, 2000) || null;
+
+      if (expectedDiagnoses.length || instructorNotes) {
+        const { error: expectationsError } = await learning
+          .from("case_expectations")
+          .insert({
+            case_id: createdCase.id,
+            expected_diagnoses: expectedDiagnoses,
+            instructor_notes: instructorNotes,
+          });
+        if (expectationsError) throw expectationsError;
+      }
+
+      // 3. Rubric criteria with points
+      if (criteria.length) {
+        const { error: criteriaError } = await learning
+          .from("rubric_criteria")
+          .insert(
+            criteria.map((item, index) => ({
+              case_id: createdCase.id,
+              position: index,
+              description: item.description,
+              max_points: item.points,
+            })),
+          );
+        if (criteriaError) throw criteriaError;
+      }
+
+      // 4. One assignment per student, tied to this class
+      const { error: assignmentError } = await learning
+        .from("student_case_assignments")
+        .insert(
+          studentIds.map((studentId) => ({
+            student_id: studentId,
+            case_id: createdCase.id,
+            classroom_id: access.classroom.id,
+            encounter_status: "Scheduled",
+            note_type: noteType,
+            due_at: dueAt,
+          })),
+        );
+      if (assignmentError) throw assignmentError;
+    } catch (stepError) {
+      await undoCase();
+      throw stepError;
+    }
+
+    return response.status(201).json({
+      caseId: createdCase.id,
+      assigned: studentIds.length,
+      message: `Assigned to ${studentIds.length} student${studentIds.length === 1 ? "" : "s"}.`,
+    });
+  } catch (error) {
+    console.error("Unable to assign case:", error.message || error);
+    return response.status(500).json({ message: "Unable to assign this case." });
   }
-);
+});
 
 export default instructorRouter;

@@ -5,6 +5,7 @@ import {
   fetchInstructorClassroom,
   fetchInstructorClassrooms,
 } from "../lib/api";
+import AssignCaseModal from "../components/AssignCaseModal";
 
 function InstructorClassesPage({ user }) {
   const [classrooms, setClassrooms] = useState([]);
@@ -20,6 +21,8 @@ function InstructorClassesPage({ user }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  
 
   useEffect(() => {
     let isCurrent = true;
@@ -210,8 +213,14 @@ function InstructorClassesPage({ user }) {
             <article className="panel assignment-builder">
               <p className="section-label">Case assignments</p>
               <h2>Ready for scenario assignments</h2>
-              <p className="assignment-builder__copy">This classroom and its matching-discipline roster are now real database records. Scenario assignment tables are the next step.</p>
-              <button className="secondary-button" disabled type="button">Scenario tools coming next</button>
+              <p className="assignment-builder__copy">Create a case for this classroom, choose a note type, and assign it to your students.</p>
+              <button
+                className="primary-button"
+                disabled={!classroomDetail.students.length}
+                onClick={() => setIsAssignOpen(true)}
+                type="button">
+                Assign case
+              </button>
             </article>
           </section>
 
@@ -348,7 +357,17 @@ function InstructorClassesPage({ user }) {
               </form>
             </section>
           )}
-        </>
+
+                  {isAssignOpen && (
+            <AssignCaseModal
+              classroom={classroom}
+              onAssigned={(result) => setNotice(result.message)}
+              onClose={() => setIsAssignOpen(false)}
+              students={classroomDetail.students}
+            />
+          )}
+        </>  
+        
       )}
     </div>
   );
