@@ -156,11 +156,21 @@ function AdminGlobalAuditLogPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  //audit log search and filters
+  const [searchInput, setSearchInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRole, setSelectedRole] = useState("all");
+  const [selectedAction, setSelectedAction] = useState("all");
+
   // Load the events whenever the page number changes.
   useEffect(() => {
     let isCurrent = true;
 
-    fetchGlobalAuditLog(page)
+    fetchGlobalAuditLog(page, {
+      search: searchTerm,
+      role: selectedRole,
+      action: selectedAction
+    })
       .then((result) => {
         if (!isCurrent) return;
 
@@ -179,7 +189,7 @@ function AdminGlobalAuditLogPage() {
     return () => {
       isCurrent = false;
     };
-  }, [page]);
+  }, [page, searchTerm, selectedRole, selectedAction]);
 
   // Move to another page of audit events.
   function handlePageChange(nextPage) {
@@ -187,6 +197,58 @@ function AdminGlobalAuditLogPage() {
     setError("");
     setPage(nextPage);
   }
+
+
+  // Search for events performed by a particular user.
+  function handleSearch(event) {
+    event.preventDefault();
+
+    const nextSearch = searchInput.trim();
+
+    if (nextSearch !== searchTerm || page !== 1) {
+      setLoading(true);
+    }
+
+    setError("");
+    setPage(1);
+    setSearchTerm(nextSearch);
+  }
+
+  // Filter events by the user's role.
+  function handleRoleChange(event) {
+    setLoading(true);
+    setError("");
+    setPage(1);
+    setSelectedRole(event.target.value);
+  }
+
+  // Filter events by the type of action.
+  function handleActionChange(event) {
+    setLoading(true);
+    setError("");
+    setPage(1);
+    setSelectedAction(event.target.value);
+  }
+
+  // Remove all active filters.
+  function handleClearFilters() {
+    if (
+      searchTerm ||
+      selectedRole !== "all" ||
+      selectedAction !== "all" ||
+      page !== 1
+    ) {
+      setLoading(true);
+    }
+
+    setError("");
+    setSearchInput("");
+    setSearchTerm("");
+    setSelectedRole("all");
+    setSelectedAction("all");
+    setPage(1);
+  }
+
 
   return (
     <div className="dashboard-page content-page">
@@ -206,16 +268,87 @@ function AdminGlobalAuditLogPage() {
           <div>
             <p className="section-label">System activity</p>
             <h2>Audit History</h2>
-            <p>{total} recorded events</p>
+            <p>{total} recorded {total === 1 ? "event" : "events"}</p>
           </div>
         </div>
+
+
+        <form className="global-audit-filters" onSubmit={handleSearch}>
+
+          {/* Search for the person who performed the action. */}
+          <label>
+            Search by User
+            <input
+              type="search"
+              placeholder="e.g. Bart Simpson"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+            />
+          </label>
+
+          {/* Filter by user role. */}
+          <label>
+            User Role
+            <select
+              value={selectedRole}
+              onChange={handleRoleChange}
+            >
+              <option value="all">All Roles</option>
+              <option value="Student">Student</option>
+              <option value="Instructor">Instructor</option>
+              <option value="Admin">Admin</option>
+              <option value="Patient">Patient</option>
+            </select>
+          </label>
+
+          {/* Filter by recorded action. */}
+          <label>
+            Activity Type
+            <select
+              value={selectedAction}
+              onChange={handleActionChange}
+            >
+              <option value="all">All Activities</option>
+
+              <option value="note.created">SOAP Note Created</option>
+              <option value="note.updated">SOAP Note Updated</option>
+              <option value="note.submitted">SOAP Note Submitted</option>
+              <option value="note.reviewed">SOAP Note Reviewed</option>
+
+              <option value="account.invited">User Account Invited</option>
+              <option value="account.activated">User Account Activated</option>
+              <option value="account.deactivated">User Account Deactivated</option>
+              <option value="account.access_updated">User Permissions Updated</option>
+              <option value="account.password_reset_requested">Password Reset Requested</option>
+
+              <option value="classroom.created">Classroom Created</option>
+              <option value="student.bulk_invited">Student Account Created</option>
+            </select>
+          </label>
+
+          <div className="global-audit-filter-buttons">
+            <button type="submit" className="primary-button">
+              Search
+            </button>
+
+            <button
+              type="button"
+              className="global-audit-clear-button"
+              onClick={handleClearFilters}
+            >
+              Clear
+            </button>
+          </div>
+
+        </form>
+
 
         {loading && <p>Loading audit logs...</p>}
 
         {error && <p role="alert">{error}</p>}
 
         {!loading && !error && logs.length === 0 && (
-          <p>No audit events found.</p>
+          <p>No audit events match your current search or filters.</p>
         )}
 
         {!loading && !error && logs.length > 0 && (
@@ -317,7 +450,7 @@ function AdminGlobalAuditLogPage() {
               currentPage={page}
               totalItems={total}
               pageSize={pageSize}
-              itemLabel="audit events"
+              itemLabel={total === 1 ? "audit event" : "audit events"}
               onPageChange={handlePageChange}
             />
           </>

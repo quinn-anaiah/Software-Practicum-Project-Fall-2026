@@ -848,12 +848,140 @@ adminRouter.get("/global-audit-log", async (request, response) => {
     const start = (page - 1) * pageSize;
     const end = start + pageSize - 1;
 
-    // Get audit log events from the database, ordered by newest first.
-    const { data, error, count } = await database
+    
+    // Derek's Global Audit Log search and filters.
+
+    // Read the filters sent from React.
+    const search = String(request.query.search || "").trim();
+    const role = String(request.query.role || "all");
+    const action = String(request.query.action || "all");
+
+    // Only allow recognized roles and actions.
+    const allowedRoles = [
+      "all", "Student", "Instructor", "Admin", "Patient"
+    ];
+
+    const allowedActions = [
+      "all",
+      "note.created",
+      "note.updated",
+      "note.submitted",
+      "note.reviewed",
+      "account.invited",
+      "account.activated",
+      "account.deactivated",
+      "account.access_updated",
+      "account.password_reset_requested",
+      "classroom.created",
+      "student.bulk_invited"
+    ];
+
+    if (
+      search.length > 80 ||
+      !allowedRoles.includes(role) ||
+      !allowedActions.includes(action)
+    ) {
+      return response.status(400).json({
+        message: "Invalid audit log filters."
+      });
+    }
+
+    // Find matching users when a name or role is selected.
+    let matchingActorIds = null;
+
+    if (search || role !== "all") {
+      let profilesQuery = database
+        .from("profiles")
+        .select("id, first_name, last_name");
+
+      // Filter profiles by role.
+      if (role !== "all") {
+        const { data: selectedRole, error: roleError } =
+          await database
+            .from("roles")
+            .select("id")
+            .eq("name", role)
+            .maybeSingle();
+
+        if (roleError) throw roleError;
+
+        if (!selectedRole) {
+          return response.json({
+            logs: [], total: 0, page, pageSize
+          });
+        }
+
+        profilesQuery = profilesQuery.eq("role_id", selectedRole.id);
+      }
+
+      // Split names into search words.
+      // Example: "Bart Simpson" becomes ["bart", "simpson"].
+      const words = search.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+
+      if (search && words.length === 0) {
+        return response.json({
+          logs: [], total: 0, page, pageSize
+        });
+      }
+
+      // Narrow the database search using the first word.
+      if (words.length > 0) {
+        const firstWord = words[0];
+
+        profilesQuery = profilesQuery.or(
+          `first_name.ilike.%${firstWord}%,last_name.ilike.%${firstWord}%`
+        );
+      }
+
+      const { data: profiles, error: profilesError } =
+        await profilesQuery;
+
+      if (profilesError) throw profilesError;
+
+      // Check the full name against every search word.
+      matchingActorIds = (profiles || [])
+        .filter((profile) => {
+          const fullName =
+            `${profile.first_name || ""} ${profile.last_name || ""}`
+              .toLowerCase();
+
+          return words.every((word) => fullName.includes(word));
+        })
+        .map((profile) => profile.id);
+
+      // No matching users means no matching audit events.
+      if (matchingActorIds.length === 0) {
+        return response.json({
+          logs: [], total: 0, page, pageSize
+        });
+      }
+    }
+
+    // Build the audit query.
+    let auditQuery = database
       .from("admin_audit_log")
-      .select("id, actor_id, target_user_id, action, entity_type, entity_id, details, created_at", {
-        count: "exact",
-      })
+      .select(
+        "id, actor_id, target_user_id, action, entity_type, entity_id, details, created_at",
+        { count: "exact" }
+      );
+
+    // Filter by the selected action.
+    if (action === "note.updated") {
+      // Include our earlier event naming convention.
+      auditQuery = auditQuery.in("action", [
+        "note.updated", "note.update"
+      ]);
+    } else if (action !== "all") {
+      auditQuery = auditQuery.eq("action", action);
+    }
+
+    // Limit events to matching users.
+    if (matchingActorIds !== null) {
+      auditQuery = auditQuery.in("actor_id", matchingActorIds);
+    }
+
+    // Apply sorting and pagination AFTER filtering.
+    const { data, error, count } = await auditQuery
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(start, end);
