@@ -128,6 +128,60 @@ async function eligibleStudents(supabaseAdmin, subroleId) {
   return (data || []).map(formatProfile);
 }
 
+
+ // Derek cross-discipline classroom eligibility.
+async function eligibleStudentsForClassroom(supabaseAdmin, classroomId) {
+
+  // Find every discipline accepted by this classroom.
+  const { data: allowedDisciplines, error: disciplineError } =
+    await supabaseAdmin
+      .schema("school")
+      .from("classroom_allowed_subroles")
+      .select("subrole_id")
+      .eq("classroom_id", classroomId);
+
+  if (disciplineError) {
+    throw disciplineError;
+  }
+
+  // Collect the accepted discipline IDs.
+  const allowedIds = (allowedDisciplines || []).map(
+    (item) => item.subrole_id
+  );
+
+  if (allowedIds.length === 0) {
+    return [];
+  }
+
+  // Step 2: Find the Student role.
+  const { data: studentRole, error: roleError } =
+    await supabaseAdmin
+      .from("roles")
+      .select("id")
+      .eq("name", "Student")
+      .single();
+
+  if (roleError) {
+    throw roleError;
+  }
+
+  // Step 3: Find students belonging to ANY accepted discipline.
+  const { data: students, error: studentError } =
+    await supabaseAdmin
+      .from("profiles")
+      .select("id, first_name, last_name, utep_id, subroles(name)")
+      .eq("role_id", studentRole.id)
+      .in("sub_role_id", allowedIds)
+      .order("last_name");
+
+  if (studentError) {
+    throw studentError;
+  }
+
+  return (students || []).map(formatProfile);
+}
+
+
 instructorRouter.get("/dashboard", async (request, response) => {
   try {
     const context = await requireInstructor(request, response);
@@ -215,7 +269,7 @@ instructorRouter.get("/classrooms/:classroomId", async (request, response) => {
       await Promise.all([
         school.from("classroom_enrollments").select("student_id, status").eq("classroom_id", access.classroom.id).eq("status", "active"),
         school.from("classroom_groups").select("id, name").eq("classroom_id", access.classroom.id).order("name"),
-        eligibleStudents(context.supabaseAdmin, access.classroom.discipline_subrole_id),
+        eligibleStudentsForClassroom(context.supabaseAdmin, access.classroom.id),
       ]);
     if (enrollmentError || groupError) throw enrollmentError || groupError;
 
