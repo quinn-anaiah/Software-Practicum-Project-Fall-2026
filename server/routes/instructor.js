@@ -488,6 +488,42 @@ instructorRouter.post("/classrooms", async (request, response) => {
       .single();
     if (classroomError) return response.status(400).json({ message: classroomError.message });
 
+
+    // Derek cross-discipline classroom creation.
+    // Automatically add the instructor's discipline as an accepted discipline for the new classroom.
+
+    const { error: allowedDisciplineError } = await school
+      .from("classroom_allowed_subroles")
+      .insert({
+        classroom_id: classroom.id,
+        subrole_id: context.profile.sub_role_id
+      });
+
+    if (allowedDisciplineError) {
+      console.error(
+        "Unable to save classroom discipline:",
+        allowedDisciplineError
+      );
+
+      // Undo classroom creation if the discipline insert fails.
+      const { error: cleanupError } = await school
+        .from("classrooms")
+        .delete()
+        .eq("id", classroom.id);
+
+      if (cleanupError) {
+        console.error(
+          "Unable to undo classroom creation:",
+          cleanupError
+        );
+      }
+
+      return response.status(500).json({
+        message: "Unable to register the classroom's discipline."
+      });
+    }
+
+
     const { error: instructorError } = await school.from("classroom_instructors").insert({
       classroom_id: classroom.id,
       instructor_id: context.profile.id,

@@ -490,6 +490,39 @@ adminRouter.post("/academics/classrooms", async (request, response) => {
       throw classroomError;
     }
 
+
+    // Derek cross-discipline enrollment change.
+    // Automatically allow the classroom's primary discipline.
+
+    const { error: allowedDisciplineError } = await school
+      .from("classroom_allowed_subroles")
+      .insert({
+        classroom_id: classroom.id,
+        subrole_id: disciplineSubroleId
+      });
+
+    // If the discipline cannot be saved, undo the new classroom.
+    if (allowedDisciplineError) {
+      console.error(
+        "Unable to save classroom discipline:",
+        allowedDisciplineError
+      );
+
+      const { error: cleanupError } = await school
+        .from("classrooms")
+        .delete()
+        .eq("id", classroom.id);
+
+      if (cleanupError) {
+        console.error("Unable to undo classroom creation:", cleanupError);
+      }
+
+      return response.status(500).json({
+        message: "Unable to save the classroom's accepted discipline."
+      });
+    }
+
+
     if (instructorId) {
       const { error: membershipError } = await school.from("classroom_instructors").insert({
         classroom_id: classroom.id,
