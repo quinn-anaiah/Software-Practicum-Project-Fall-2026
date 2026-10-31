@@ -7,6 +7,7 @@ import {
   createAdminClassroom,
   fetchAdminAcademics,
 } from "../lib/api";
+import "./AdminAcademicsPage.css";
 
 const initialClassroom = {
   crn: "",
@@ -15,6 +16,7 @@ const initialClassroom = {
   room: "",
   term: "Fall 2026",
   disciplineSubroleId: "",
+  additionalSubroleIds: [],
   instructorId: "",
 };
 
@@ -101,9 +103,48 @@ function AdminAcademicsPage() {
     setClassroomForm((current) => ({
       ...current,
       [field]: value,
-      ...(field === "disciplineSubroleId" ? { instructorId: "" } : {}),
+
+      //If the primary discipline changes,
+      // then reset the instructor and remove the new primary
+      // from the list of additional disciplines
+      ...(field === "disciplineSubroleId"
+        ? {
+          instructorId: "",
+          additionalSubroleIds: current.additionalSubroleIds.filter(
+            (id) => id !== String(value)
+          )
+        }
+        : {}),
     }));
   }
+
+
+  // Derek additional classroom disciplines.
+  function toggleAdditionalDiscipline(subroleId) {
+
+    const id = String(subroleId);
+
+    setClassroomForm((current) => {
+
+      const selected = current.additionalSubroleIds;
+
+      // Remove the discipline if already selected.
+      if (selected.includes(id)) {
+        return {
+          ...current,
+          additionalSubroleIds:
+            selected.filter((item) => item !== id)
+        };
+      }
+
+      // Otherwise add the discipline.
+      return {
+        ...current,
+        additionalSubroleIds: [...selected, id]
+      };
+    });
+  }
+
 
   async function runAction(action) {
     setIsSaving(true);
@@ -217,6 +258,49 @@ function AdminAcademicsPage() {
             <label>Room <span>Optional</span><input onChange={(event) => updateClassroom("room", event.target.value)} value={classroomForm.room} /></label>
             <label>Discipline<select onChange={(event) => updateClassroom("disciplineSubroleId", event.target.value)} required value={classroomForm.disciplineSubroleId}><option value="">Choose discipline</option>{academics.subroles.map((subrole) => <option key={subrole.id} value={subrole.id}>{subrole.name}</option>)}</select></label>
             <label>Lead instructor <span>Optional</span><select disabled={!classroomForm.disciplineSubroleId} onChange={(event) => updateClassroom("instructorId", event.target.value)} value={classroomForm.instructorId}><option value="">Assign later</option>{formInstructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}</select></label>
+
+            <fieldset className="accepted-disciplines">
+              <legend>Accepted Student Disciplines</legend>
+
+              <p>
+                Select additional disciplines allowed to enroll.
+                The primary discipline is always included.
+              </p>
+
+              <div className="accepted-disciplines-grid">
+                {academics.subroles.map((subrole) => {
+
+                  const id = String(subrole.id);
+
+                  const isPrimary =
+                    String(classroomForm.disciplineSubroleId) === id;
+
+                  const isSelected =
+                    isPrimary ||
+                    classroomForm.additionalSubroleIds.includes(id);
+
+                  return (
+                    <label
+                      key={subrole.id}
+                      className="accepted-discipline-option"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        disabled={isPrimary}
+                        onChange={() => toggleAdditionalDiscipline(id)}
+                      />
+
+                      <span>
+                        {subrole.name}
+                        {isPrimary ? " (Primary)" : ""}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
             <div className="admin-form__actions"><button className="secondary-button" onClick={() => setIsCreateOpen(false)} type="button">Cancel</button><button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Creating…" : "Create classroom"}</button></div>
           </form>
         </section>

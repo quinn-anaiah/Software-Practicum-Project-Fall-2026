@@ -163,16 +163,16 @@ adminRouter.get("/users", async (request, response) => {
     const search = String(request.query.query || "").trim().toLowerCase();
     const users = search
       ? directory.filter((user) =>
-          [
-            user.name,
-            user.email,
-            user.role,
-            user.subrole,
-            user.utepId,
-            user.careflowId,
-            user.id,
-          ].some((value) => String(value || "").toLowerCase().includes(search)),
-        )
+        [
+          user.name,
+          user.email,
+          user.role,
+          user.subrole,
+          user.utepId,
+          user.careflowId,
+          user.id,
+        ].some((value) => String(value || "").toLowerCase().includes(search)),
+      )
       : directory;
 
     return response.json({ users, stats: buildStats(directory) });
@@ -449,6 +449,33 @@ adminRouter.post("/academics/classrooms", async (request, response) => {
   const term = String(request.body.term || "").trim();
   const disciplineSubroleId = Number(request.body.disciplineSubroleId);
   const instructorId = String(request.body.instructorId || "").trim();
+  // Derek additional accepted disciplines.
+  const additionalInput = request.body.additionalSubroleIds;
+
+  if (
+    additionalInput !== undefined &&
+    !Array.isArray(additionalInput)
+  ) {
+    return response.status(400).json({
+      message: "Additional disciplines must be a list."
+    });
+  }
+
+  const additionalSubroleIds =
+    (additionalInput || []).map(Number);
+
+  // Only accept valid positive numeric IDs.
+  if (
+    additionalSubroleIds.length > 30 ||
+    additionalSubroleIds.some(
+      (id) => !Number.isSafeInteger(id) || id <= 0
+    )
+  ) {
+    return response.status(400).json({
+      message: "Invalid additional disciplines."
+    });
+  }
+
 
   if (!crn || !fullName || !shortName || !term || !disciplineSubroleId) {
     return response.status(400).json({ message: "CRN, class names, term, and discipline are required." });
@@ -468,6 +495,34 @@ adminRouter.post("/academics/classrooms", async (request, response) => {
     if (disciplineError || !discipline) {
       return response.status(400).json({ message: "Choose a valid discipline." });
     }
+
+
+    // Combine the primary discipline with the additional ones.
+    // Set prevents duplicate IDs.
+    const allowedIds = [
+      ...new Set([
+        disciplineSubroleId,
+        ...additionalSubroleIds
+      ])
+    ];
+
+    // Verify that every selected discipline exists.
+    const { data: validSubroles, error: subrolesError } =
+      await supabaseAdmin
+        .from("subroles")
+        .select("id")
+        .in("id", allowedIds);
+
+    if (subrolesError) {
+      throw subrolesError;
+    }
+
+    if ((validSubroles || []).length !== allowedIds.length) {
+      return response.status(400).json({
+        message: "One or more selected disciplines are invalid."
+      });
+    }
+
 
     if (instructorId) {
       const { data: instructor, error: instructorError } = await supabaseAdmin
@@ -493,13 +548,16 @@ adminRouter.post("/academics/classrooms", async (request, response) => {
 
     // Derek cross-discipline enrollment change.
     // Automatically allow the classroom's primary discipline.
+    // Save every accepted discipline for this classroom.
+    const disciplineRows = allowedIds.map((id) => ({
+      classroom_id: classroom.id,
+      subrole_id: id
+    }));
 
     const { error: allowedDisciplineError } = await school
       .from("classroom_allowed_subroles")
-      .insert({
-        classroom_id: classroom.id,
-        subrole_id: disciplineSubroleId
-      });
+      .insert(disciplineRows);
+
 
     // If the discipline cannot be saved, undo the new classroom.
     if (allowedDisciplineError) {
@@ -529,8 +587,19 @@ adminRouter.post("/academics/classrooms", async (request, response) => {
         instructor_id: instructorId,
         access_level: "owner",
       });
-      if (membershipError) throw membershipError;
+      if (membershipError) {
+        const { error: cleanupError } = await school
+          .from("classrooms")
+          .delete()
+          .eq("id", classroom.id);
+        
+          if (cleanupError) {
+            console.error("Classroom cleanup failed:", cleanupError);
+          }
+      
+        throw membershipError;
     }
+  }
 
     await writeAuditLog(supabaseAdmin, {
       actor_id: actor.id,
